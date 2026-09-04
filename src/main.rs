@@ -1,5 +1,5 @@
-#![allow(unused_imports)]
-use std::io::Write;
+use anyhow::Result;
+use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 
 fn main() {
@@ -10,15 +10,26 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                handle_connection(stream);
+                if let Err(e) = handle_connection(stream) {
+                    eprintln!("connection error: {}", e);
+                }
             }
             Err(e) => {
-                println!("error: {}", e);
+                eprintln!("error: {}", e);
             }
         }
     }
 }
 
-fn handle_connection(mut stream: TcpStream) {
-    stream.write_all(b"+PONG\r\n").unwrap();
+fn handle_connection(mut stream: TcpStream) -> Result<()> {
+    println!("accepted new connection");
+    loop {
+        let mut buffer = [0; 512];
+        stream.read(&mut buffer)?;
+        if buffer.len() == 0 {
+            break;
+        }
+        stream.write_all(b"+PONG\r\n").unwrap();
+    }
+    Ok(())
 }
