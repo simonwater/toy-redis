@@ -6,6 +6,7 @@ pub enum Value {
     SimpleErrors(String),
     Integer(i32),
     BulkStrings(String),
+    NullBulkStrings,
     Arrays(Vec<Value>),
 }
 
@@ -39,6 +40,9 @@ impl Value {
                 out.extend_from_slice(b"\r\n");
                 out.extend_from_slice(bytes);
                 out.extend_from_slice(b"\r\n");
+            }
+            Value::NullBulkStrings => {
+                out.extend_from_slice(b"$-1\r\n");
             }
             Value::Arrays(vals) => {
                 out.push(b'*');
@@ -79,7 +83,7 @@ impl<'a> Parser<'a> {
             b':' => self.integer(),
             b'$' => self.bulk_string(),
             b'*' => self.arrays(),
-            v => bail!("unsport type: {}", v),
+            v => bail!("unsported type: {}", v),
         }
     }
 
@@ -108,7 +112,11 @@ impl<'a> Parser<'a> {
 
     fn bulk_string(&mut self) -> Result<Value> {
         self.consume(b'$')?;
-        let len = self.parse_i32()? as usize;
+        let len = self.parse_i32()?;
+        if len < 0 {
+            return Ok(Value::NullBulkStrings);
+        }
+        let len = len as usize;
         self.consume_terminator()?;
         let val = String::from_utf8(self.input[self.pos..self.pos + len].to_vec())?;
         self.pos += len;

@@ -1,20 +1,22 @@
 use anyhow::Result;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::{Arc, RwLock};
 use std::thread;
-use toy_redis::Value;
+use toy_redis::{Command, MemoryDB, Value};
 
 fn main() {
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
+    let db_rc: Arc<RwLock<MemoryDB>> = Arc::new(RwLock::new(MemoryDB::new()));
     println!("Redis is started!");
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
 
     for stream in listener.incoming() {
+        let db = db_rc.clone();
         match stream {
             Ok(stream) => {
                 thread::spawn(|| {
                     // todo thread pool
-                    if let Err(e) = handle_connection(stream) {
+                    if let Err(e) = handle_connection(stream, db) {
                         eprintln!("connection error: {}", e);
                     }
                 });
@@ -26,7 +28,7 @@ fn main() {
     }
 }
 
-fn handle_connection(mut stream: TcpStream) -> Result<()> {
+fn handle_connection(mut stream: TcpStream, db: Arc<RwLock<MemoryDB>>) -> Result<()> {
     println!("accepted new connection");
     let mut buffer = [0; 512];
     loop {
@@ -36,7 +38,7 @@ fn handle_connection(mut stream: TcpStream) -> Result<()> {
         }
         let input = Value::from(&buffer[..read_cnt])?;
         println!("input is: {:?}", input);
-        let output = execute(input)?;
+        let output = execute(input, &db)?;
 
         let mut out = Vec::with_capacity(128);
         output.serilize(&mut out);
@@ -45,32 +47,13 @@ fn handle_connection(mut stream: TcpStream) -> Result<()> {
     Ok(())
 }
 
-fn execute(input: Value) -> Result<Value> {
-    match input {
-        Value::Arrays(values) => {
-            let mut iter = values.iter();
-            let Some(cmd_val) = iter.next() else {
-                return Ok(Value::SimpleErrors("missing command!".into()));
-            };
-            match cmd_val {
-                Value::BulkStrings(s) | Value::SimpleStrings(s) => {
-                    let cmd = s.to_uppercase();
-                    match cmd.as_str() {
-                        "PING" => return Ok(Value::SimpleStrings("PONG".into())),
-                        "ECHO" => {
-                            let arg = iter.next().unwrap();
-                            return Ok(arg.clone());
-                        }
-                        _ => return Ok(Value::SimpleErrors("unsported command!".into())),
-                    }
-                }
-                _ => {
-                    return Ok(Value::SimpleErrors("command format error!".into()));
-                }
-            }
-        }
-        _ => {
-            return Ok(Value::SimpleErrors("input format error!".into()));
-        }
-    }
+fn execute(input: Value, db: &Arc<RwLock<MemoryDB>>) -> Result<Value> {
+    let Value::Arrays(values) = input else {
+        return Ok(Value::SimpleErrors("input format error!".into()));
+    };
+    let cmd = match Command::new(values) {
+        Ok(cmd) => cmd,
+        Err(e) => return Ok(Value::SimpleErrors(format!("{}", e))),
+    };
+    cmd.execute(db)
 }

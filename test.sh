@@ -8,7 +8,7 @@ TESTER_BIN="./tester_mac_x86.out"
 
 # 按顺序定义 Shell 教程的所有 Stage Slug
 STAGES=(
-  "jm1" "rg2" "wy1" "zu2" "qq0"  # Base
+  "jm1" "rg2" "wy1" "zu2" "qq0" "la7"  # Base
 )
 
 TARGET_SLUG=$1
