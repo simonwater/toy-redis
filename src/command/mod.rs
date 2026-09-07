@@ -9,14 +9,13 @@ pub enum Command {
     Echo(IntoIter<Value>),
     Set(IntoIter<Value>),
     Get(IntoIter<Value>),
+    Rpush(IntoIter<Value>),
 }
 
 impl Command {
     pub fn new(cmd_values: Vec<Value>) -> Result<Self> {
         let mut cmd_iter: std::vec::IntoIter<Value> = cmd_values.into_iter();
-        let Some(name_value) = cmd_iter.next() else {
-            bail!("missing command!");
-        };
+        let name_value = cmd_iter.next().ok_or_else(|| anyhow!("missing command!"))?;
 
         match name_value {
             Value::BulkStrings(s) | Value::SimpleStrings(s) => {
@@ -26,6 +25,7 @@ impl Command {
                     "ECHO" => Command::Echo(cmd_iter),
                     "GET" => Command::Get(cmd_iter),
                     "SET" => Command::Set(cmd_iter),
+                    "RPUSH" => Command::Rpush(cmd_iter),
                     _ => bail!("unsupported command!"),
                 };
                 return Ok(cmd);
@@ -42,6 +42,7 @@ impl Command {
             Command::Echo(args) => execute_echo(args),
             Command::Set(args) => execute_set(args, db),
             Command::Get(args) => execute_get(args, db),
+            Command::Rpush(args) => execute_rpush(args, db),
         }
     }
 }
@@ -97,4 +98,13 @@ fn execute_get(mut arg_iter: IntoIter<Value>, db: &Arc<RwLock<MemoryDB>>) -> Res
         }
         _ => bail!("unsupported key type!"),
     }
+}
+
+fn execute_rpush(mut arg_iter: IntoIter<Value>, db: &Arc<RwLock<MemoryDB>>) -> Result<Value> {
+    let list_key = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("rpush command missing list key!"))?;
+    let list_key = list_key.into_string()?;
+    let len = db.read().unwrap().rpush(list_key, arg_iter);
+    Ok(len)
 }

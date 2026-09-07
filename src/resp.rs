@@ -51,7 +51,6 @@ impl Value {
                 for val in vals {
                     val.serilize(out);
                 }
-                out.extend_from_slice(b"\r\n");
             }
         }
     }

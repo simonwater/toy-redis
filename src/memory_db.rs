@@ -1,10 +1,14 @@
 use crate::Value;
 use chrono::{Duration, Utc};
-use std::collections::HashMap;
+use dashmap::DashMap;
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, RwLock};
+use std::vec::IntoIter;
 
 pub const DAY_IN_MILLIS: i64 = 1000 * 60 * 60 * 24;
+type ReList = Arc<RwLock<VecDeque<Value>>>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct MemoItem {
     value: Value,
     expire_timestamp_ms: i64, // 毫秒表示的过期时间戳
@@ -27,12 +31,14 @@ impl MemoItem {
 
 pub struct MemoryDB {
     map: HashMap<String, MemoItem>,
+    lists: DashMap<String, ReList>,
 }
 
 impl MemoryDB {
     pub fn new() -> Self {
         Self {
             map: HashMap::with_capacity(128),
+            lists: DashMap::with_capacity(128),
         }
     }
 
@@ -58,5 +64,22 @@ impl MemoryDB {
         //     Utc::now().timestamp_millis()
         // );
         self.map.insert(key, item);
+    }
+
+    fn get_or_create_list(&self, list_key: String) -> ReList {
+        self.lists
+            .entry(list_key)
+            .or_insert_with(|| Arc::new(RwLock::new(VecDeque::with_capacity(64))))
+            .value()
+            .clone()
+    }
+
+    pub fn rpush(&self, list_key: String, val_iter: IntoIter<Value>) -> Value {
+        let list_arc = self.get_or_create_list(list_key);
+        let mut list = list_arc.write().unwrap();
+        for value in val_iter {
+            list.push_back(value);
+        }
+        Value::Integer(list.len() as i64)
     }
 }
