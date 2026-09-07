@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, bail};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, RwLock};
@@ -12,12 +12,15 @@ fn main() {
 
     for stream in listener.incoming() {
         let db = db_rc.clone();
+        println!("accepted new connection");
         match stream {
-            Ok(stream) => {
-                thread::spawn(|| {
+            Ok(mut stream) => {
+                thread::spawn(move || {
                     // todo thread pool
-                    if let Err(e) = handle_connection(stream, db) {
+                    if let Err(e) = handle_connection(&mut stream, db) {
                         eprintln!("connection error: {}", e);
+                        let res = Value::SimpleErrors(format!("{}", e));
+                        stream.write_all(&res.to_bytes()).unwrap();
                     }
                 });
             }
@@ -28,9 +31,8 @@ fn main() {
     }
 }
 
-fn handle_connection(mut stream: TcpStream, db: Arc<RwLock<MemoryDB>>) -> Result<()> {
-    println!("accepted new connection");
-    let mut buffer = [0; 512];
+fn handle_connection(stream: &mut TcpStream, db: Arc<RwLock<MemoryDB>>) -> Result<()> {
+    let mut buffer = [0; 1024];
     loop {
         let read_cnt = stream.read(&mut buffer)?;
         if read_cnt == 0 {
@@ -50,11 +52,8 @@ fn handle_connection(mut stream: TcpStream, db: Arc<RwLock<MemoryDB>>) -> Result
 
 fn execute(input: Value, db: &Arc<RwLock<MemoryDB>>) -> Result<Value> {
     let Value::Arrays(values) = input else {
-        return Ok(Value::SimpleErrors("input format error!".into()));
+        bail!("input format error!")
     };
-    let cmd = match Command::new(values) {
-        Ok(cmd) => cmd,
-        Err(e) => return Ok(Value::SimpleErrors(format!("{}", e))),
-    };
+    let cmd = Command::new(values)?;
     cmd.execute(db)
 }

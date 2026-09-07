@@ -1,6 +1,6 @@
 use crate::Value;
 use crate::{MemoryDB, memory_db};
-use anyhow::{Result, bail};
+use anyhow::{Result, anyhow, bail};
 use std::sync::{Arc, RwLock};
 use std::vec::IntoIter;
 
@@ -49,18 +49,18 @@ impl Command {
 fn execute_echo(mut arg_iter: IntoIter<Value>) -> Result<Value> {
     let arg = arg_iter.next();
     if arg.is_none() {
-        return Ok(Value::SimpleErrors("echo command missing argument!".into()));
+        bail!("echo command missing argument!")
     }
     return Ok(arg.unwrap().clone());
 }
 
 fn execute_set(mut arg_iter: IntoIter<Value>, db: &Arc<RwLock<MemoryDB>>) -> Result<Value> {
-    let Some(key) = arg_iter.next() else {
-        return Ok(Value::SimpleErrors("set command missing key!".into()));
-    };
-    let Some(val) = arg_iter.next() else {
-        return Ok(Value::SimpleErrors("set command missing value!".into()));
-    };
+    let key = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("set command missing key!"))?;
+    let val = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("set command missing value!"))?;
     let mut ttl_ms = memory_db::DAY_IN_MILLIS;
     if let (Some(f), Some(ttl)) = (arg_iter.next(), arg_iter.next()) {
         if let (Ok(f), Ok(ttl)) = (f.into_string(), ttl.into_integer()) {
@@ -77,14 +77,14 @@ fn execute_set(mut arg_iter: IntoIter<Value>, db: &Arc<RwLock<MemoryDB>>) -> Res
             db.write().unwrap().set_with_ttl(k, val, ttl_ms);
             return Ok(Value::SimpleStrings("OK".into()));
         }
-        _ => return Ok(Value::SimpleStrings("unsupported key type!".into())),
+        _ => bail!("unsupported key type!"),
     }
 }
 
 fn execute_get(mut arg_iter: IntoIter<Value>, db: &Arc<RwLock<MemoryDB>>) -> Result<Value> {
-    let Some(key) = arg_iter.next() else {
-        return Ok(Value::SimpleErrors("set command missing key!".into()));
-    };
+    let key = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("set command missing key!"))?;
     match key {
         Value::SimpleStrings(k) | Value::BulkStrings(k) => {
             let value = db
@@ -95,6 +95,6 @@ fn execute_get(mut arg_iter: IntoIter<Value>, db: &Arc<RwLock<MemoryDB>>) -> Res
                 .unwrap_or_else(|| Value::NullBulkStrings);
             return Ok(value);
         }
-        _ => return Ok(Value::SimpleStrings("unsupported key type!".into())),
+        _ => bail!("unsupported key type!"),
     }
 }

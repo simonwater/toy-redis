@@ -56,6 +56,12 @@ impl Value {
         }
     }
 
+    pub fn to_bytes(self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(512);
+        self.serilize(&mut bytes);
+        bytes
+    }
+
     pub fn is_string(&self) -> bool {
         matches!(
             self,
