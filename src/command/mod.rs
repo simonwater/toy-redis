@@ -1,5 +1,5 @@
-use crate::MemoryDB;
 use crate::Value;
+use crate::{MemoryDB, memory_db};
 use anyhow::{Result, bail};
 use std::sync::{Arc, RwLock};
 use std::vec::IntoIter;
@@ -61,9 +61,20 @@ fn execute_set(mut arg_iter: IntoIter<Value>, db: &Arc<RwLock<MemoryDB>>) -> Res
     let Some(val) = arg_iter.next() else {
         return Ok(Value::SimpleErrors("set command missing value!".into()));
     };
+    let mut ttl_ms = memory_db::DAY_IN_MILLIS;
+    if let (Some(f), Some(ttl)) = (arg_iter.next(), arg_iter.next()) {
+        if let (Ok(f), Ok(ttl)) = (f.into_string(), ttl.into_integer()) {
+            ttl_ms = match f.to_uppercase().as_str() {
+                "EX" => 1000 * ttl,
+                "PX" => ttl,
+                _ => memory_db::DAY_IN_MILLIS,
+            };
+        }
+    }
+
     match key {
         Value::SimpleStrings(k) | Value::BulkStrings(k) => {
-            db.write().unwrap().set(k, val);
+            db.write().unwrap().set_with_ttl(k, val, ttl_ms);
             return Ok(Value::SimpleStrings("OK".into()));
         }
         _ => return Ok(Value::SimpleStrings("unsupported key type!".into())),

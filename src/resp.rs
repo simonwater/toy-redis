@@ -4,7 +4,7 @@ use anyhow::{Result, bail};
 pub enum Value {
     SimpleStrings(String),
     SimpleErrors(String),
-    Integer(i32),
+    Integer(i64),
     BulkStrings(String),
     NullBulkStrings,
     Arrays(Vec<Value>),
@@ -53,6 +53,30 @@ impl Value {
                 }
                 out.extend_from_slice(b"\r\n");
             }
+        }
+    }
+
+    pub fn is_string(&self) -> bool {
+        matches!(
+            self,
+            Value::SimpleStrings(_) | Value::BulkStrings(_) | Value::NullBulkStrings
+        )
+    }
+
+    pub fn into_string(self) -> Result<String> {
+        match self {
+            Value::SimpleStrings(s) | Value::BulkStrings(s) | Value::SimpleErrors(s) => Ok(s),
+            Value::NullBulkStrings => Ok("$-1\r\n".into()),
+            Value::Integer(val) => Ok(val.to_string()),
+            _ => bail!("can not convert to string"),
+        }
+    }
+
+    pub fn into_integer(self) -> Result<i64> {
+        match self {
+            Value::Integer(val) => Ok(val),
+            Value::SimpleStrings(s) | Value::BulkStrings(s) => Ok(s.parse::<i64>()?),
+            _ => bail!("can not convert to integer"),
         }
     }
 }
@@ -105,14 +129,14 @@ impl<'a> Parser<'a> {
 
     fn integer(&mut self) -> Result<Value> {
         self.consume(b':')?;
-        let val = self.parse_i32()?;
+        let val = self.parse_i64()?;
         self.consume_terminator()?;
         Ok(Value::Integer(val))
     }
 
     fn bulk_string(&mut self) -> Result<Value> {
         self.consume(b'$')?;
-        let len = self.parse_i32()?;
+        let len = self.parse_i64()?;
         if len < 0 {
             return Ok(Value::NullBulkStrings);
         }
@@ -127,7 +151,7 @@ impl<'a> Parser<'a> {
 
     fn arrays(&mut self) -> Result<Value> {
         self.consume(b'*')?;
-        let len = self.parse_i32()? as usize;
+        let len = self.parse_i64()? as usize;
         self.consume_terminator()?;
         let mut vals = Vec::with_capacity(len);
         for _ in 0..len {
@@ -138,7 +162,7 @@ impl<'a> Parser<'a> {
         Ok(Value::Arrays(vals))
     }
 
-    fn parse_i32(&mut self) -> Result<i32> {
+    fn parse_i64(&mut self) -> Result<i64> {
         let mut flag = 1;
         let cur = self.peek();
         if cur == b'+' || cur == b'-' {
@@ -147,14 +171,14 @@ impl<'a> Parser<'a> {
         if cur == b'-' {
             flag = -1;
         }
-        let mut val = 0;
+        let mut val: i64 = 0;
         while !self.is_terminator() {
             let cur = self.advance();
-            let num = (cur - b'0') as i32;
+            let num = (cur - b'0') as i64;
             if num < 0 || num > 9 {
                 bail!("illegal integer at: {}", self.pos - 1);
             }
-            if (i32::MAX - num) / 10 < val {
+            if (i64::MAX - num) / 10 < val {
                 bail!("integer overflow at: {}", self.pos);
             }
             val = val * 10 + num;

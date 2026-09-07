@@ -37,8 +37,9 @@ fn handle_connection(mut stream: TcpStream, db: Arc<RwLock<MemoryDB>>) -> Result
             break;
         }
         let input = Value::from(&buffer[..read_cnt])?;
-        println!("input is: {:?}", input);
+        //println!("input is: {:?}", input);
         let output = execute(input, &db)?;
+        //println!("output is: {:?}", output);
 
         let mut out = Vec::with_capacity(128);
         output.serilize(&mut out);
