@@ -8,6 +8,7 @@ pub enum Value {
     BulkStrings(String),
     NullBulkStrings,
     Arrays(Vec<Value>),
+    NullArrays,
 }
 
 impl Value {
@@ -51,6 +52,9 @@ impl Value {
                 for val in vals {
                     val.serilize(out);
                 }
+            }
+            Value::NullArrays => {
+                out.extend_from_slice(b"*-1\r\n");
             }
         }
     }
@@ -156,8 +160,13 @@ impl<'a> Parser<'a> {
 
     fn arrays(&mut self) -> Result<Value> {
         self.consume(b'*')?;
-        let len = self.parse_i64()? as usize;
+        let len = self.parse_i64()?;
         self.consume_terminator()?;
+        if len < 0 {
+            return Ok(Value::NullArrays);
+        }
+
+        let len = len as usize;
         let mut vals = Vec::with_capacity(len);
         for _ in 0..len {
             let val = self.parse_value()?;
