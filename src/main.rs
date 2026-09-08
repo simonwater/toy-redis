@@ -1,12 +1,12 @@
 use anyhow::{Result, bail};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::thread;
 use toy_redis::{Command, MemoryDB, Value};
 
 fn main() {
-    let db_rc: Arc<RwLock<MemoryDB>> = Arc::new(RwLock::new(MemoryDB::new()));
+    let db_rc: Arc<MemoryDB> = Arc::new(MemoryDB::new());
     println!("Redis is started!");
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
 
@@ -31,7 +31,7 @@ fn main() {
     }
 }
 
-fn handle_connection(stream: &mut TcpStream, db: Arc<RwLock<MemoryDB>>) -> Result<()> {
+fn handle_connection(stream: &mut TcpStream, db: Arc<MemoryDB>) -> Result<()> {
     let mut buffer = [0; 1024];
     loop {
         let read_cnt = stream.read(&mut buffer)?;
@@ -50,7 +50,7 @@ fn handle_connection(stream: &mut TcpStream, db: Arc<RwLock<MemoryDB>>) -> Resul
     Ok(())
 }
 
-fn execute(input: Value, db: &Arc<RwLock<MemoryDB>>) -> Result<Value> {
+fn execute(input: Value, db: &Arc<MemoryDB>) -> Result<Value> {
     let Value::Arrays(values) = input else {
         bail!("input format error!")
     };
