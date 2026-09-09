@@ -1,5 +1,5 @@
 use crate::Value;
-use crate::{MemoryDB, memory_db};
+use crate::{MemoryDB, db};
 use anyhow::{Result, anyhow, bail};
 use std::sync::Arc;
 use std::vec::IntoIter;
@@ -13,6 +13,8 @@ pub enum Command {
     Lpush(IntoIter<Value>),
     Rpop(IntoIter<Value>),
     Lpop(IntoIter<Value>),
+    Brpop(IntoIter<Value>),
+    Blpop(IntoIter<Value>),
     Lrange(IntoIter<Value>),
     Llen(IntoIter<Value>),
 }
@@ -34,6 +36,8 @@ impl Command {
                     "LPUSH" => Command::Lpush(cmd_iter),
                     "RPOP" => Command::Rpop(cmd_iter),
                     "LPOP" => Command::Lpop(cmd_iter),
+                    "BRPOP" => Command::Brpop(cmd_iter),
+                    "BLPOP" => Command::Blpop(cmd_iter),
                     "LRANGE" => Command::Lrange(cmd_iter),
                     "LLEN" => Command::Llen(cmd_iter),
                     _ => bail!("unsupported command!"),
@@ -56,6 +60,8 @@ impl Command {
             Command::Lpush(args) => execute_lpush(args, db),
             Command::Rpop(args) => execute_rpop(args, db),
             Command::Lpop(args) => execute_lpop(args, db),
+            Command::Brpop(args) => execute_brpop(args, db),
+            Command::Blpop(args) => execute_blpop(args, db),
             Command::Lrange(args) => execute_lrange(args, db),
             Command::Llen(args) => execute_llen(args, db),
         }
@@ -81,13 +87,13 @@ fn execute_set(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Valu
     let val = arg_iter
         .next()
         .ok_or_else(|| anyhow!("set command missing value!"))?;
-    let mut ttl_ms = memory_db::DAY_IN_MILLIS;
+    let mut ttl_ms = db::DAY_IN_MILLIS;
     if let (Some(f), Some(ttl)) = (arg_iter.next(), arg_iter.next()) {
         if let (Ok(f), Ok(ttl)) = (f.into_string(), ttl.into_integer()) {
             ttl_ms = match f.to_uppercase().as_str() {
                 "EX" => 1000 * ttl,
                 "PX" => ttl,
-                _ => memory_db::DAY_IN_MILLIS,
+                _ => db::DAY_IN_MILLIS,
             };
         }
     }
@@ -104,7 +110,7 @@ fn execute_set(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Valu
 fn execute_get(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
     let key = arg_iter
         .next()
-        .ok_or_else(|| anyhow!("set command missing key!"))?;
+        .ok_or_else(|| anyhow!("get command missing key!"))?;
     match key {
         Value::SimpleStrings(k) | Value::BulkStrings(k) => {
             let value = db.get(&k).unwrap_or_else(|| Value::NullBulkStrings);
@@ -135,7 +141,7 @@ fn execute_lpush(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Va
 fn execute_lrange(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
     let list_key = arg_iter
         .next()
-        .ok_or_else(|| anyhow!("rpush command missing list key!"))?
+        .ok_or_else(|| anyhow!("lrange command missing list key!"))?
         .into_string()?;
     let start = arg_iter
         .next()
@@ -152,7 +158,7 @@ fn execute_lrange(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<V
 fn execute_llen(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
     let list_key = arg_iter
         .next()
-        .ok_or_else(|| anyhow!("rpush command missing list key!"))?
+        .ok_or_else(|| anyhow!("llen command missing list key!"))?
         .into_string()?;
     let len = db.llen(list_key);
     Ok(len)
@@ -161,7 +167,7 @@ fn execute_llen(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Val
 fn execute_lpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
     let list_key = arg_iter
         .next()
-        .ok_or_else(|| anyhow!("rpush command missing list key!"))?
+        .ok_or_else(|| anyhow!("lpop command missing list key!"))?
         .into_string()?;
     let cnt = arg_iter
         .next()
@@ -174,12 +180,38 @@ fn execute_lpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Val
 fn execute_rpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
     let list_key = arg_iter
         .next()
-        .ok_or_else(|| anyhow!("rpush command missing list key!"))?
+        .ok_or_else(|| anyhow!("rpop command missing list key!"))?
         .into_string()?;
     let cnt = arg_iter
         .next()
         .unwrap_or_else(|| Value::Integer(1))
         .into_integer()?;
     let val = db.rpop(list_key, cnt);
+    Ok(val)
+}
+
+fn execute_blpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+    let list_key = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("blpop command missing list key!"))?
+        .into_string()?;
+    let timeout = arg_iter
+        .next()
+        .unwrap_or_else(|| Value::Integer(1))
+        .into_double()?;
+    let val = db.blpop(list_key, timeout);
+    Ok(val)
+}
+
+fn execute_brpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+    let list_key = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("brpop command missing list key!"))?
+        .into_string()?;
+    let timeout = arg_iter
+        .next()
+        .unwrap_or_else(|| Value::Integer(1))
+        .into_double()?;
+    let val = db.brpop(list_key, timeout);
     Ok(val)
 }

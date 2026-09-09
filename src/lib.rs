@@ -1,7 +1,8 @@
 mod command;
-mod memory_db;
+mod list;
+mod db;
 mod resp;
 
 pub use command::Command;
-pub use memory_db::MemoryDB;
+pub use db::MemoryDB;
 pub use resp::Value;

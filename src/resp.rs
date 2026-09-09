@@ -5,6 +5,7 @@ pub enum Value {
     SimpleStrings(String),
     SimpleErrors(String),
     Integer(i64),
+    Double(f64),
     BulkStrings(String),
     NullBulkStrings,
     Arrays(Vec<Value>),
@@ -53,6 +54,11 @@ impl Value {
                     val.serilize(out);
                 }
             }
+            Value::Double(num) => {
+                out.push(b',');
+                out.extend_from_slice(num.to_string().as_bytes());
+                out.extend_from_slice(b"\r\n");
+            }
             Value::NullArrays => {
                 out.extend_from_slice(b"*-1\r\n");
             }
@@ -88,6 +94,15 @@ impl Value {
             _ => bail!("can not convert to integer"),
         }
     }
+
+    pub fn into_double(self) -> Result<f64> {
+        match self {
+            Value::Double(val) => Ok(val),
+            Value::Integer(val) => Ok(val as f64),
+            Value::SimpleStrings(s) | Value::BulkStrings(s) => Ok(s.parse::<f64>()?),
+            _ => bail!("can not convert to double"),
+        }
+    }
 }
 
 struct Parser<'a> {
@@ -116,6 +131,7 @@ impl<'a> Parser<'a> {
             b':' => self.integer(),
             b'$' => self.bulk_string(),
             b'*' => self.arrays(),
+            b',' => self.double(),
             v => bail!("unsported type: {}", v),
         }
     }
@@ -174,6 +190,14 @@ impl<'a> Parser<'a> {
         }
 
         Ok(Value::Arrays(vals))
+    }
+
+    fn double(&mut self) -> Result<Value> {
+        self.consume(b',')?;
+        let s = self.parse_string()?;
+        let num: f64 = s.parse()?;
+        self.consume_terminator()?;
+        Ok(Value::Double(num))
     }
 
     fn parse_i64(&mut self) -> Result<i64> {
