@@ -17,6 +17,7 @@ pub enum Command {
     Blpop(IntoIter<Value>),
     Lrange(IntoIter<Value>),
     Llen(IntoIter<Value>),
+    Type(IntoIter<Value>),
 }
 
 impl Command {
@@ -40,6 +41,7 @@ impl Command {
                     "BLPOP" => Command::Blpop(cmd_iter),
                     "LRANGE" => Command::Lrange(cmd_iter),
                     "LLEN" => Command::Llen(cmd_iter),
+                    "TYPE" => Command::Type(cmd_iter),
                     _ => bail!("unsupported command!"),
                 };
                 return Ok(cmd);
@@ -64,6 +66,7 @@ impl Command {
             Command::Blpop(args) => execute_blpop(args, db),
             Command::Lrange(args) => execute_lrange(args, db),
             Command::Llen(args) => execute_llen(args, db),
+            Command::Type(args) => execute_type(args, db),
         }
     }
 }
@@ -214,4 +217,15 @@ fn execute_brpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Va
         .into_double()?;
     let val = db.brpop(list_key, timeout);
     Ok(val)
+}
+
+fn execute_type(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+    let key = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("type command missing key!"))?
+        .into_string()?;
+    if let Some(_) = db.get(&key) {
+        return Ok(Value::SimpleStrings("string".into()));
+    }
+    return Ok(Value::SimpleStrings("none".into()));
 }
