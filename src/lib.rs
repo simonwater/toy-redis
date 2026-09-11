@@ -1,5 +1,4 @@
 mod command;
-mod list;
 mod db;
 mod resp;
 

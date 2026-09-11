@@ -1,6 +1,7 @@
 use crate::Value;
 use crate::{MemoryDB, db};
 use anyhow::{Result, anyhow, bail};
+use bytes::Bytes;
 use std::sync::Arc;
 use std::vec::IntoIter;
 
@@ -23,11 +24,11 @@ pub enum Command {
 impl Command {
     pub fn new(cmd_values: Vec<Value>) -> Result<Self> {
         let mut cmd_iter: std::vec::IntoIter<Value> = cmd_values.into_iter();
-        let name_value = cmd_iter.next().ok_or_else(|| anyhow!("missing command!"))?;
-
-        match name_value {
-            Value::BulkStrings(s) | Value::SimpleStrings(s) => {
-                let name = s.to_uppercase();
+        let cmd = cmd_iter.next().ok_or_else(|| anyhow!("missing command!"))?;
+        match cmd {
+            Value::BulkStrings(s) => {
+                let name = String::from_utf8(s.to_vec())?;
+                let name = name.to_uppercase();
                 let cmd = match name.as_str() {
                     "PING" => Command::Ping(cmd_iter),
                     "ECHO" => Command::Echo(cmd_iter),
@@ -86,10 +87,13 @@ fn execute_echo(mut arg_iter: IntoIter<Value>, _db: &Arc<MemoryDB>) -> Result<Va
 fn execute_set(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
     let key = arg_iter
         .next()
-        .ok_or_else(|| anyhow!("set command missing key!"))?;
+        .ok_or_else(|| anyhow!("set command missing key!"))?
+        .into_bulk_bytes()?;
     let val = arg_iter
         .next()
-        .ok_or_else(|| anyhow!("set command missing value!"))?;
+        .ok_or_else(|| anyhow!("set command missing value!"))?
+        .into_bulk_bytes()?;
+
     let mut ttl_ms = db::DAY_IN_MILLIS;
     if let (Some(f), Some(ttl)) = (arg_iter.next(), arg_iter.next()) {
         if let (Ok(f), Ok(ttl)) = (f.into_string(), ttl.into_integer()) {
@@ -101,51 +105,54 @@ fn execute_set(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Valu
         }
     }
 
-    match key {
-        Value::SimpleStrings(k) | Value::BulkStrings(k) => {
-            db.set_with_ttl(k, val, ttl_ms);
-            return Ok(Value::SimpleStrings("OK".into()));
-        }
-        _ => bail!("unsupported key type!"),
-    }
+    db.set_with_ttl(key, val, ttl_ms);
+    return Ok(Value::SimpleStrings("OK".into()));
 }
 
 fn execute_get(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
     let key = arg_iter
         .next()
-        .ok_or_else(|| anyhow!("get command missing key!"))?;
-    match key {
-        Value::SimpleStrings(k) | Value::BulkStrings(k) => {
-            let value = db.get(&k).unwrap_or_else(|| Value::NullBulkStrings);
-            return Ok(value);
-        }
-        _ => bail!("unsupported key type!"),
+        .ok_or_else(|| anyhow!("get command missing key!"))?
+        .into_bulk_bytes()?;
+
+    let value = db.get(&key)?;
+    if let Some(bytes) = value {
+        return Ok(Value::BulkStrings(bytes));
     }
+    return Ok(Value::NullBulkStrings);
 }
 
 fn execute_rpush(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
     let list_key = arg_iter
         .next()
-        .ok_or_else(|| anyhow!("rpush command missing list key!"))?;
-    let list_key = list_key.into_string()?;
-    let len = db.rpush(list_key, arg_iter);
-    Ok(len)
+        .ok_or_else(|| anyhow!("rpush command missing list key!"))?
+        .into_bulk_bytes()?;
+    let args = arg_iter
+        .map(|v| v.into_bulk_bytes())
+        .collect::<Result<Vec<Bytes>>>()?;
+
+    let len = db.rpush(list_key, args)?;
+    Ok(Value::Integer(len))
 }
 
 fn execute_lpush(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
     let list_key = arg_iter
         .next()
-        .ok_or_else(|| anyhow!("lpush command missing list key!"))?;
-    let list_key = list_key.into_string()?;
-    let len = db.lpush(list_key, arg_iter);
-    Ok(len)
+        .ok_or_else(|| anyhow!("lpush command missing list key!"))?
+        .into_bulk_bytes()?;
+    let args = arg_iter
+        .map(|v| v.into_bulk_bytes())
+        .collect::<Result<Vec<Bytes>>>()?;
+
+    let len = db.lpush(list_key, args)?;
+    Ok(Value::Integer(len))
 }
 
 fn execute_lrange(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
     let list_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("lrange command missing list key!"))?
-        .into_string()?;
+        .into_bulk_bytes()?;
     let start = arg_iter
         .next()
         .ok_or_else(|| anyhow!("lrange command missing start index."))?
@@ -154,78 +161,110 @@ fn execute_lrange(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<V
         .next()
         .ok_or_else(|| anyhow!("lrange command missing end index."))?
         .into_integer()?;
-    let vals = db.lrange(list_key, start, end);
-    Ok(vals)
+
+    match db.lrange(list_key, start, end)? {
+        Some(bytes_vec) => Ok(bytes_vec.into()),
+        _ => return Ok(Value::EmptyArrays),
+    }
 }
 
 fn execute_llen(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
     let list_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("llen command missing list key!"))?
-        .into_string()?;
-    let len = db.llen(list_key);
-    Ok(len)
+        .into_bulk_bytes()?;
+
+    let len = db.llen(list_key)?;
+    Ok(Value::Integer(len))
 }
 
 fn execute_lpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
     let list_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("lpop command missing list key!"))?
-        .into_string()?;
+        .into_bulk_bytes()?;
     let cnt = arg_iter
         .next()
         .unwrap_or_else(|| Value::Integer(1))
         .into_integer()?;
-    let val = db.lpop(list_key, cnt);
-    Ok(val)
+
+    match db.lpop(list_key, cnt)? {
+        Some(bytes_vec) => {
+            if cnt == 1 {
+                Ok(Value::BulkStrings(bytes_vec[0].clone()))
+            } else {
+                Ok(bytes_vec.into())
+            }
+        }
+        _ => Ok(Value::NullBulkStrings),
+    }
 }
 
 fn execute_rpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
     let list_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("rpop command missing list key!"))?
-        .into_string()?;
+        .into_bulk_bytes()?;
     let cnt = arg_iter
         .next()
         .unwrap_or_else(|| Value::Integer(1))
         .into_integer()?;
-    let val = db.rpop(list_key, cnt);
-    Ok(val)
+
+    match db.rpop(list_key, cnt)? {
+        Some(bytes_vec) => {
+            if cnt == 1 {
+                Ok(Value::BulkStrings(bytes_vec[0].clone()))
+            } else {
+                Ok(bytes_vec.into())
+            }
+        }
+        _ => Ok(Value::NullBulkStrings),
+    }
 }
 
 fn execute_blpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
     let list_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("blpop command missing list key!"))?
-        .into_string()?;
+        .into_bulk_bytes()?;
     let timeout = arg_iter
         .next()
         .unwrap_or_else(|| Value::Integer(1))
         .into_double()?;
-    let val = db.blpop(list_key, timeout);
-    Ok(val)
+
+    match db.blpop(list_key.clone(), timeout)? {
+        Some(bytes) => {
+            let bytes_vec = vec![list_key.clone(), bytes];
+            Ok(bytes_vec.into())
+        }
+        _ => Ok(Value::NullArrays),
+    }
 }
 
 fn execute_brpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
     let list_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("brpop command missing list key!"))?
-        .into_string()?;
+        .into_bulk_bytes()?;
     let timeout = arg_iter
         .next()
         .unwrap_or_else(|| Value::Integer(1))
         .into_double()?;
-    let val = db.brpop(list_key, timeout);
-    Ok(val)
+
+    match db.brpop(list_key.clone(), timeout)? {
+        Some(bytes) => {
+            let bytes_vec = vec![list_key.clone(), bytes];
+            Ok(bytes_vec.into())
+        }
+        _ => Ok(Value::NullArrays),
+    }
 }
 
 fn execute_type(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
     let key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("type command missing key!"))?
-        .into_string()?;
-    if let Some(_) = db.get(&key) {
-        return Ok(Value::SimpleStrings("string".into()));
-    }
-    return Ok(Value::SimpleStrings("none".into()));
+        .into_bulk_bytes()?;
+    let t = db.obj_type(&key);
+    Ok(Value::SimpleStrings(t))
 }

@@ -1,4 +1,5 @@
 use anyhow::{Result, bail};
+use bytes::{Bytes, BytesMut};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
@@ -32,22 +33,22 @@ fn main() {
 }
 
 fn handle_connection(stream: &mut TcpStream, db: Arc<MemoryDB>) -> Result<()> {
-    let mut buffer = [0; 1024];
+    let mut buffer = BytesMut::with_capacity(4096);
+    let mut tmp_buf = [0u8; 1024];
     loop {
-        let read_cnt = stream.read(&mut buffer)?;
+        let read_cnt = stream.read(&mut tmp_buf)?;
         if read_cnt == 0 {
-            break;
+            bail!("input is empty!")
         }
-        let input = Value::from(&buffer[..read_cnt])?;
-        //println!("input is: {:?}", input);
+        buffer.extend_from_slice(&tmp_buf[..read_cnt]);
+        let bytes: Bytes = buffer.split_to(read_cnt).freeze();
+        let input = Value::from(bytes)?;
         let output = execute(input, &db)?;
-        //println!("output is: {:?}", output);
 
         let mut out = Vec::with_capacity(128);
         output.serilize(&mut out);
         stream.write_all(&out).unwrap();
     }
-    Ok(())
 }
 
 fn execute(input: Value, db: &Arc<MemoryDB>) -> Result<Value> {

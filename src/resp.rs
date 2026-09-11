@@ -1,4 +1,5 @@
 use anyhow::{Result, bail};
+use bytes::Bytes;
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -6,14 +7,15 @@ pub enum Value {
     SimpleErrors(String),
     Integer(i64),
     Double(f64),
-    BulkStrings(String),
+    BulkStrings(Bytes),
     NullBulkStrings,
     Arrays(Vec<Value>),
     NullArrays,
+    EmptyArrays,
 }
 
 impl Value {
-    pub fn from(input: &[u8]) -> Result<Value> {
+    pub fn from(input: Bytes) -> Result<Value> {
         let mut parser = Parser::new(input);
         parser.parse()
     }
@@ -35,8 +37,7 @@ impl Value {
                 out.extend_from_slice(i.to_string().as_bytes());
                 out.extend_from_slice(b"\r\n");
             }
-            Value::BulkStrings(s) => {
-                let bytes = s.as_bytes();
+            Value::BulkStrings(bytes) => {
                 out.push(b'$');
                 out.extend_from_slice(bytes.len().to_string().as_bytes());
                 out.extend_from_slice(b"\r\n");
@@ -54,13 +55,16 @@ impl Value {
                     val.serilize(out);
                 }
             }
+            Value::EmptyArrays => {
+                out.extend_from_slice(b"*0\r\n");
+            }
+            Value::NullArrays => {
+                out.extend_from_slice(b"*-1\r\n");
+            }
             Value::Double(num) => {
                 out.push(b',');
                 out.extend_from_slice(num.to_string().as_bytes());
                 out.extend_from_slice(b"\r\n");
-            }
-            Value::NullArrays => {
-                out.extend_from_slice(b"*-1\r\n");
             }
         }
     }
@@ -78,9 +82,17 @@ impl Value {
         )
     }
 
+    pub fn into_bulk_bytes(self) -> Result<Bytes> {
+        match self {
+            Value::BulkStrings(s) => Ok(s),
+            _ => bail!("resp type error, expected type is bulk strings"),
+        }
+    }
+
     pub fn into_string(self) -> Result<String> {
         match self {
-            Value::SimpleStrings(s) | Value::BulkStrings(s) | Value::SimpleErrors(s) => Ok(s),
+            Value::SimpleStrings(s) | Value::SimpleErrors(s) => Ok(s),
+            Value::BulkStrings(s) => Ok(String::from_utf8(s.to_vec())?),
             Value::NullBulkStrings => Ok("$-1\r\n".into()),
             Value::Integer(val) => Ok(val.to_string()),
             _ => bail!("can not convert to string"),
@@ -90,7 +102,11 @@ impl Value {
     pub fn into_integer(self) -> Result<i64> {
         match self {
             Value::Integer(val) => Ok(val),
-            Value::SimpleStrings(s) | Value::BulkStrings(s) => Ok(s.parse::<i64>()?),
+            Value::SimpleStrings(s) => Ok(s.parse::<i64>()?),
+            Value::BulkStrings(s) => {
+                let s = String::from_utf8(s.to_vec())?;
+                Ok(s.parse::<i64>()?)
+            }
             _ => bail!("can not convert to integer"),
         }
     }
@@ -99,19 +115,23 @@ impl Value {
         match self {
             Value::Double(val) => Ok(val),
             Value::Integer(val) => Ok(val as f64),
-            Value::SimpleStrings(s) | Value::BulkStrings(s) => Ok(s.parse::<f64>()?),
+            Value::SimpleStrings(s) => Ok(s.parse::<f64>()?),
+            Value::BulkStrings(s) => {
+                let s = String::from_utf8(s.to_vec())?;
+                Ok(s.parse::<f64>()?)
+            }
             _ => bail!("can not convert to double"),
         }
     }
 }
 
-struct Parser<'a> {
+struct Parser {
     pos: usize,
-    input: &'a [u8],
+    input: Bytes,
 }
 
-impl<'a> Parser<'a> {
-    fn new(input: &'a [u8]) -> Self {
+impl Parser {
+    fn new(input: Bytes) -> Self {
         Self { input, pos: 0 }
     }
 
@@ -167,7 +187,7 @@ impl<'a> Parser<'a> {
         }
         let len = len as usize;
         self.consume_terminator()?;
-        let val = String::from_utf8(self.input[self.pos..self.pos + len].to_vec())?;
+        let val = self.input.slice(self.pos..self.pos + len);
         self.pos += len;
         self.consume_terminator()?;
 
@@ -277,20 +297,27 @@ impl<'a> Parser<'a> {
     }
 }
 
+impl From<Vec<Bytes>> for Value {
+    fn from(bytes_vec: Vec<Bytes>) -> Self {
+        let frames: Vec<Value> = bytes_vec.into_iter().map(Value::BulkStrings).collect();
+        Value::Arrays(frames)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_simple() {
-        let s = b"*1\r\n$4\r\nPING\r\n";
+        let s = Bytes::from("*1\r\n$4\r\nPING\r\n");
         let value = Value::from(s).unwrap();
         println!("{:?}", value);
     }
 
     #[test]
     fn test_arr() {
-        let s = b"*2\r\n*3\r\n:1\r\n:2\r\n:3\r\n*2\r\n+Hello\r\n-World\r\n";
+        let s = Bytes::from("*2\r\n*3\r\n:1\r\n:2\r\n:3\r\n*2\r\n+Hello\r\n-World\r\n");
         let value = Value::from(s).unwrap();
         println!("{:?}", value);
     }
