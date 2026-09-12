@@ -19,6 +19,7 @@ pub enum Command {
     Lrange(IntoIter<Value>),
     Llen(IntoIter<Value>),
     Type(IntoIter<Value>),
+    Xadd(IntoIter<Value>),
 }
 
 impl Command {
@@ -43,6 +44,7 @@ impl Command {
                     "LRANGE" => Command::Lrange(cmd_iter),
                     "LLEN" => Command::Llen(cmd_iter),
                     "TYPE" => Command::Type(cmd_iter),
+                    "XADD" => Command::Xadd(cmd_iter),
                     _ => bail!("unsupported command!"),
                 };
                 return Ok(cmd);
@@ -68,6 +70,7 @@ impl Command {
             Command::Lrange(args) => execute_lrange(args, db),
             Command::Llen(args) => execute_llen(args, db),
             Command::Type(args) => execute_type(args, db),
+            Command::Xadd(args) => execute_xadd(args, db),
         }
     }
 }
@@ -267,4 +270,20 @@ fn execute_type(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Val
         .into_bulk_bytes()?;
     let t = db.obj_type(&key);
     Ok(Value::SimpleStrings(t))
+}
+
+fn execute_xadd(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+    let stream_key = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("xadd command missing key!"))?
+        .into_bulk_bytes()?;
+    let entry_id = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("xadd command missing entry id!"))?
+        .into_bulk_bytes()?;
+    let args = arg_iter
+        .map(|v| v.into_bulk_bytes())
+        .collect::<Result<Vec<Bytes>>>()?;
+    let id = db.xadd(stream_key, entry_id, args)?;
+    Ok(Value::BulkStrings(id))
 }

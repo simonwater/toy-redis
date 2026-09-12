@@ -15,6 +15,10 @@ impl RedisObject {
         Self::List(Arc::new(ReList::new(name)))
     }
 
+    pub fn new_stream(name: Bytes) -> Self {
+        Self::Stream(Arc::new(ReStream::new(name)))
+    }
+
     pub fn obj_type(&self) -> String {
         match self {
             RedisObject::String(_) => "string".into(),

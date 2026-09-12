@@ -5,12 +5,14 @@ use bytes::Bytes;
 
 #[derive(Debug)]
 pub struct ReStream {
+    _name: Bytes,
     stream: RwLock<BTreeMap<Bytes, Vec<Bytes>>>,
 }
 
 impl ReStream {
-    pub fn new() -> Self {
+    pub fn new(name: Bytes) -> Self {
         Self {
+            _name: name,
             stream: RwLock::new(BTreeMap::new()),
         }
     }

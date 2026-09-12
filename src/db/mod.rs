@@ -151,4 +151,19 @@ impl MemoryDB {
 }
 
 /// stream
-impl MemoryDB {}
+impl MemoryDB {
+    fn get_or_create_stream(&self, stream_key: Bytes) -> Result<Arc<ReStream>> {
+        self.map
+            .entry(stream_key.clone())
+            .or_insert_with(|| MemoItem::new(RedisObject::new_stream(stream_key)))
+            .value()
+            .object
+            .to_restream()
+    }
+
+    pub fn xadd(&self, steam_key: Bytes, entry_id: Bytes, val_vec: Vec<Bytes>) -> Result<Bytes> {
+        let stream_arc = self.get_or_create_stream(steam_key)?;
+        let id = stream_arc.add(entry_id, val_vec);
+        Ok(id)
+    }
+}
