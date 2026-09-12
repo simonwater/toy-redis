@@ -1,4 +1,4 @@
-use super::ReList;
+use super::{ReList, ReStream};
 use anyhow::{Result, bail};
 use bytes::Bytes;
 use std::sync::Arc;
@@ -7,6 +7,7 @@ use std::sync::Arc;
 pub enum RedisObject {
     String(Bytes),
     List(Arc<ReList>),
+    Stream(Arc<ReStream>),
 }
 
 impl RedisObject {
@@ -18,6 +19,7 @@ impl RedisObject {
         match self {
             RedisObject::String(_) => "string".into(),
             RedisObject::List(_) => "list".into(),
+            RedisObject::Stream(_) => "stream".into(),
         }
     }
 
@@ -30,8 +32,15 @@ impl RedisObject {
 
     pub fn to_relist(&self) -> Result<Arc<ReList>> {
         match self {
-            RedisObject::List(list_rc) => Ok(Arc::clone(list_rc)),
+            RedisObject::List(list_arc) => Ok(Arc::clone(list_arc)),
             _ => bail!("type is not list"),
+        }
+    }
+
+    pub fn to_restream(&self) -> Result<Arc<ReStream>> {
+        match self {
+            RedisObject::Stream(stream_arc) => Ok(Arc::clone(stream_arc)),
+            _ => bail!("type is not stream"),
         }
     }
 }

@@ -1,5 +1,6 @@
 mod list;
 mod redis_object;
+mod stream;
 
 use anyhow::Result;
 use bytes::Bytes;
@@ -8,6 +9,7 @@ use dashmap::DashMap;
 use list::ReList;
 use redis_object::RedisObject;
 use std::sync::Arc;
+use stream::ReStream;
 
 pub const DAY_IN_MILLIS: i64 = 1000 * 60 * 60 * 24;
 
@@ -77,9 +79,10 @@ impl MemoryDB {
         let item = MemoItem::with_ttl(RedisObject::String(bytes), ttl_ms);
         self.map.insert(key, item);
     }
+}
 
-    /// lists
-
+/// lists
+impl MemoryDB {
     fn get_or_create_list(&self, list_key: Bytes) -> Result<Arc<ReList>> {
         self.map
             .entry(list_key.clone())
@@ -146,3 +149,6 @@ impl MemoryDB {
         Ok(0)
     }
 }
+
+/// stream
+impl MemoryDB {}
