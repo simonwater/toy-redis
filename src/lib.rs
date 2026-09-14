@@ -1,5 +1,5 @@
 mod command;
-mod db;
+pub mod db;
 mod resp;
 
 pub use command::Command;

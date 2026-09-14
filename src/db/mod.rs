@@ -6,10 +6,11 @@ use anyhow::Result;
 use bytes::Bytes;
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
-use list::ReList;
 use redis_object::RedisObject;
 use std::sync::Arc;
-use stream::ReStream;
+
+pub use list::ReList;
+pub use stream::{ReStream, StreamEntry};
 
 pub const DAY_IN_MILLIS: i64 = 1000 * 60 * 60 * 24;
 
@@ -92,9 +93,9 @@ impl MemoryDB {
             .to_relist()
     }
 
-    fn get_list(&self, list_key: Bytes) -> Result<Option<Arc<ReList>>> {
+    fn get_list(&self, list_key: &Bytes) -> Result<Option<Arc<ReList>>> {
         self.map
-            .get(&list_key)
+            .get(list_key)
             .map(|entry| entry.value().object.to_relist())
             .transpose()
     }
@@ -112,14 +113,14 @@ impl MemoryDB {
     }
 
     pub fn rpop(&self, list_key: Bytes, cnt: i64) -> Result<Option<Vec<Bytes>>> {
-        if let Some(list_arc) = self.get_list(list_key)? {
+        if let Some(list_arc) = self.get_list(&list_key)? {
             return Ok(list_arc.pop_back(cnt));
         }
         return Ok(None);
     }
 
     pub fn lpop(&self, list_key: Bytes, cnt: i64) -> Result<Option<Vec<Bytes>>> {
-        if let Some(list_arc) = self.get_list(list_key)? {
+        if let Some(list_arc) = self.get_list(&list_key)? {
             return Ok(list_arc.pop_front(cnt));
         }
         return Ok(None);
@@ -136,14 +137,14 @@ impl MemoryDB {
     }
 
     pub fn lrange(&self, list_key: Bytes, start: i64, end: i64) -> Result<Option<Vec<Bytes>>> {
-        if let Some(list_arc) = self.get_list(list_key)? {
+        if let Some(list_arc) = self.get_list(&list_key)? {
             return Ok(Some(list_arc.range(start, end)));
         }
         Ok(None)
     }
 
     pub fn llen(&self, list_key: Bytes) -> Result<i64> {
-        if let Some(list_arc) = self.get_list(list_key)? {
+        if let Some(list_arc) = self.get_list(&list_key)? {
             return Ok(list_arc.len());
         }
         Ok(0)
@@ -161,9 +162,28 @@ impl MemoryDB {
             .to_restream()
     }
 
-    pub fn xadd(&self, steam_key: Bytes, entry_id: Bytes, val_vec: Vec<Bytes>) -> Result<Bytes> {
-        let stream_arc = self.get_or_create_stream(steam_key)?;
+    fn get_stream(&self, stream_key: &Bytes) -> Result<Option<Arc<ReStream>>> {
+        self.map
+            .get(stream_key)
+            .map(|entry| entry.value().object.to_restream())
+            .transpose()
+    }
+
+    pub fn xadd(&self, stream_key: Bytes, entry_id: Bytes, val_vec: Vec<Bytes>) -> Result<Bytes> {
+        let stream_arc = self.get_or_create_stream(stream_key)?;
         let id = stream_arc.add(entry_id, val_vec)?;
         Ok(id)
+    }
+
+    pub fn xrange(
+        &self,
+        stream_key: Bytes,
+        start: Bytes,
+        end: Bytes,
+    ) -> Result<Option<Vec<StreamEntry>>> {
+        if let Some(stream_arc) = self.get_stream(&stream_key)? {
+            return Ok(Some(stream_arc.xrange(start, end)?));
+        }
+        Ok(None)
     }
 }

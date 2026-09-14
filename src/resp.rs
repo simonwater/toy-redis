@@ -1,6 +1,8 @@
 use anyhow::{Result, bail};
 use bytes::Bytes;
 
+use crate::db::StreamEntry;
+
 #[derive(Debug, Clone)]
 pub enum Value {
     SimpleStrings(String),
@@ -300,6 +302,21 @@ impl Parser {
 impl From<Vec<Bytes>> for Value {
     fn from(bytes_vec: Vec<Bytes>) -> Self {
         let frames: Vec<Value> = bytes_vec.into_iter().map(Value::BulkStrings).collect();
+        Value::Arrays(frames)
+    }
+}
+
+impl From<Vec<StreamEntry>> for Value {
+    fn from(entrys: Vec<StreamEntry>) -> Self {
+        let mut frames: Vec<Value> = Vec::with_capacity(entrys.len());
+        for entry in entrys {
+            let id = entry.get_id();
+            let values = entry.to_value();
+            let mut frame: Vec<Value> = Vec::with_capacity(2);
+            frame.push(Value::BulkStrings(id.to_bytes()));
+            frame.push(values.into());
+            frames.push(Value::Arrays(frame));
+        }
         Value::Arrays(frames)
     }
 }
