@@ -166,14 +166,23 @@ impl ReStream {
     }
 
     pub fn xrange(&self, start: Bytes, end: Bytes) -> Result<Vec<StreamEntry>> {
-        let start = EntryID::from(start, 0)?;
-        let end = EntryID::from(end, i64::MAX)?;
         let len = self.len();
-        let start_idx = self.lower_bound(start);
+        let start_idx = if &start[..] == b"-" {
+            0
+        } else {
+            let start = EntryID::from(start, 0)?;
+            self.lower_bound(start)
+        };
         if start_idx == len {
             return Ok(Vec::new());
         }
-        let end_idx = self.high_bound(end);
+
+        let end_idx = if &end[..] == b"+" {
+            len - 1
+        } else {
+            let end = EntryID::from(end, i64::MAX)?;
+            self.high_bound(end)
+        };
         if end_idx == len || start_idx > end_idx {
             return Ok(Vec::new());
         }
