@@ -70,7 +70,7 @@ impl Value {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(512);
+        let mut bytes = Vec::with_capacity(128);
         self.serilize(&mut bytes);
         bytes
     }

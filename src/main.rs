@@ -19,8 +19,8 @@ fn main() {
                 thread::spawn(move || {
                     // todo thread pool
                     if let Err(e) = handle_connection(&mut stream, db) {
-                        eprintln!("connection error: {}", e);
                         let res = Value::SimpleErrors(format!("{}", e));
+                        println!("err: {:?}", res);
                         stream.write_all(&res.to_bytes()).unwrap();
                     }
                 });
@@ -42,19 +42,22 @@ fn handle_connection(stream: &mut TcpStream, db: Arc<MemoryDB>) -> Result<()> {
         }
         buffer.extend_from_slice(&tmp_buf[..read_cnt]);
         let bytes: Bytes = buffer.split_to(read_cnt).freeze();
-        let input = Value::from(bytes)?;
-        let output = execute(input, &db)?;
 
-        let mut out = Vec::with_capacity(128);
-        output.serilize(&mut out);
-        stream.write_all(&out).unwrap();
+        let output = match handle_request(bytes, &db) {
+            Ok(output) => output,
+            Err(e) => Value::SimpleErrors(format!("{}", e)),
+        };
+
+        stream.write_all(&output.to_bytes())?;
     }
 }
 
-fn execute(input: Value, db: &Arc<MemoryDB>) -> Result<Value> {
+fn handle_request(bytes: Bytes, db: &Arc<MemoryDB>) -> Result<Value> {
+    let input = Value::from(bytes)?;
     let Value::Arrays(values) = input else {
         bail!("input format error!")
     };
     let cmd = Command::new(values)?;
-    cmd.execute(db)
+    let res = cmd.execute(db)?;
+    Ok(res)
 }

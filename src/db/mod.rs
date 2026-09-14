@@ -163,7 +163,7 @@ impl MemoryDB {
 
     pub fn xadd(&self, steam_key: Bytes, entry_id: Bytes, val_vec: Vec<Bytes>) -> Result<Bytes> {
         let stream_arc = self.get_or_create_stream(steam_key)?;
-        let id = stream_arc.add(entry_id, val_vec);
+        let id = stream_arc.add(entry_id, val_vec)?;
         Ok(id)
     }
 }
