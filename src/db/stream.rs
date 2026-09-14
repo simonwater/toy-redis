@@ -1,4 +1,4 @@
-use anyhow::{Ok, Result, bail};
+use anyhow::{Ok, Result, anyhow, bail};
 use bytes::Bytes;
 use chrono::Utc;
 use std::sync::RwLock;
@@ -26,42 +26,46 @@ impl EntryID {
         Ok(Self { ms, seq })
     }
 
-    fn next_id(&self, pat: Bytes) -> Result<Self> {
-        let mut bytes = &pat[..];
-        if bytes == b"0-0" {
+    fn next_id(&self, mut pat: Bytes) -> Result<Self> {
+        if pat == "0-0" {
             bail!("ERR The ID specified in XADD must be greater than 0-0")
         }
-        if bytes == b"*" {
-            bytes = b"*-*";
+        if pat == "*" {
+            pat = Bytes::from("*-*");
         }
 
-        let mut ms_seq = bytes.split(|&b| b == b'-');
-        if let Some(ms_bytes) = ms_seq.next() {
-            let ms = if ms_bytes == b"*" {
-                Utc::now().timestamp_millis().max(self.ms)
+        let pat_str = std::str::from_utf8(&pat)?;
+        let (ms_str, seq_str) = pat_str
+            .split_once('-')
+            .ok_or_else(|| anyhow!("ERR XADD missing entry ID or the entry ID format error"))?;
+        let ms = if ms_str == "*" {
+            Utc::now().timestamp_millis().max(self.ms)
+        } else {
+            ms_str.parse::<i64>()?
+        };
+        if ms < self.ms {
+            bail!(
+                "ERR The ID specified in XADD is equal or smaller than the target stream top item"
+            );
+        }
+
+        let seq = if seq_str == "*" {
+            if ms == self.ms {
+                self.seq + 1
+            } else if ms == 0 {
+                1
             } else {
-                String::from_utf8(ms_bytes.into())?.parse::<i64>()?
-            };
-            if ms < self.ms {
-                bail!(
-                    "ERR The ID specified in XADD is equal or smaller than the target stream top item"
-                );
+                0
             }
-
-            if let Some(seq_bytes) = ms_seq.next() {
-                if seq_bytes == b"*" {
-                    return Ok(Self::new(ms, if ms == self.ms { self.seq + 1 } else { 0 }));
-                }
-                let seq = String::from_utf8(seq_bytes.into())?.parse::<i64>()?;
-                if ms == self.ms && seq <= self.seq {
-                    bail!(
-                        "ERR The ID specified in XADD is equal or smaller than the target stream top item"
-                    );
-                }
-                return Ok(Self::new(ms, seq));
-            }
+        } else {
+            seq_str.parse::<i64>()?
+        };
+        if ms == self.ms && seq <= self.seq {
+            bail!(
+                "ERR The ID specified in XADD is equal or smaller than the target stream top item"
+            );
         }
-        bail!("ERR XADD missing entry ID or entry ID format error");
+        return Ok(Self::new(ms, seq));
     }
 
     pub fn to_bytes(&self) -> Bytes {
