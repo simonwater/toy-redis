@@ -2,7 +2,7 @@ mod list;
 mod redis_object;
 mod stream;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use bytes::Bytes;
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
@@ -185,5 +185,26 @@ impl MemoryDB {
             return Ok(Some(stream_arc.xrange(start, end)?));
         }
         Ok(None)
+    }
+
+    pub fn xread(
+        &self,
+        stream_keys: &[Bytes],
+        entry_ids: &[Bytes],
+    ) -> Result<Option<Vec<(Bytes, Vec<StreamEntry>)>>> {
+        if stream_keys.is_empty() || stream_keys.len() != entry_ids.len() {
+            bail!("ERR stream keys ans entry ids format error");
+        }
+        let mut results = Vec::with_capacity(stream_keys.len());
+        for (stream_key, id) in stream_keys.iter().zip(entry_ids) {
+            let entrys = if let Some(stream_arc) = self.get_stream(&stream_key)? {
+                stream_arc.xread(id)?
+            } else {
+                Vec::new()
+            };
+            results.push((stream_key.clone(), entrys));
+        }
+
+        Ok(Some(results))
     }
 }

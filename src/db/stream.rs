@@ -14,12 +14,13 @@ impl EntryID {
         Self { ms, seq }
     }
 
-    fn from(bytes: Bytes, default_seq: i64) -> Result<Self> {
-        let mut ms_seq = bytes.split(|&b| b == b'-');
-        let ms_bytes = ms_seq.next().unwrap();
-        let ms: i64 = String::from_utf8(ms_bytes.into())?.parse()?;
-        let seq = if let Some(seq_bytes) = ms_seq.next() {
-            String::from_utf8(seq_bytes.into())?.parse()?
+    fn from(id: &Bytes, default_seq: i64) -> Result<Self> {
+        let id_str = std::str::from_utf8(id)?;
+        let mut ms_seq = id_str.split('-');
+        let ms_str = ms_seq.next().unwrap();
+        let ms: i64 = ms_str.parse()?;
+        let seq = if let Some(seq_str) = ms_seq.next() {
+            seq_str.parse()?
         } else {
             default_seq
         };
@@ -100,7 +101,7 @@ pub struct ReStream {
 }
 
 impl ReStream {
-    fn lower_bound(&self, target: EntryID) -> usize {
+    fn lower_bound(&self, target: EntryID, include: bool) -> usize {
         let datas = self.stream.read().unwrap();
         let mut ans = datas.len();
         if datas.is_empty() {
@@ -112,7 +113,9 @@ impl ReStream {
             let mid = lo + ((hi - lo) >> 1);
             let mid_val = &datas[mid];
             if mid_val.id >= target {
-                ans = mid;
+                if include || mid_val.id > target {
+                    ans = mid;
+                }
                 if mid == 0 {
                     break;
                 }
@@ -124,7 +127,7 @@ impl ReStream {
         ans
     }
 
-    fn high_bound(&self, target: EntryID) -> usize {
+    fn high_bound(&self, target: EntryID, include: bool) -> usize {
         let datas = self.stream.read().unwrap();
         let mut ans = datas.len();
         if datas.is_empty() {
@@ -136,7 +139,9 @@ impl ReStream {
             let mid = lo + ((hi - lo) >> 1);
             let mid_val = &datas[mid];
             if mid_val.id <= target {
-                ans = mid;
+                if include || mid_val.id < target {
+                    ans = mid;
+                }
                 lo = mid + 1;
             } else {
                 if mid == 0 {
@@ -174,8 +179,8 @@ impl ReStream {
         let start_idx = if &start[..] == b"-" {
             0
         } else {
-            let start = EntryID::from(start, 0)?;
-            self.lower_bound(start)
+            let start = EntryID::from(&start, 0)?;
+            self.lower_bound(start, true)
         };
         if start_idx == len {
             return Ok(Vec::new());
@@ -184,8 +189,8 @@ impl ReStream {
         let end_idx = if &end[..] == b"+" {
             len - 1
         } else {
-            let end = EntryID::from(end, i64::MAX)?;
-            self.high_bound(end)
+            let end = EntryID::from(&end, i64::MAX)?;
+            self.high_bound(end, true)
         };
         if end_idx == len || start_idx > end_idx {
             return Ok(Vec::new());
@@ -194,6 +199,21 @@ impl ReStream {
         let mut results = Vec::with_capacity(end_idx - start_idx + 1);
         let stream = self.stream.read().unwrap();
         for i in start_idx..=end_idx {
+            results.push(stream[i].clone());
+        }
+        Ok(results)
+    }
+
+    pub fn xread(&self, id: &Bytes) -> Result<Vec<StreamEntry>> {
+        let n = self.len();
+        let id = EntryID::from(id, 0)?;
+        let idx = self.lower_bound(id, false);
+        if idx == n {
+            return Ok(Vec::new());
+        }
+        let mut results = Vec::with_capacity(n - idx);
+        let stream = self.stream.read().unwrap();
+        for i in idx..n {
             results.push(stream[i].clone());
         }
         Ok(results)

@@ -40,3 +40,26 @@ pub(super) fn execute_xrange(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) 
     };
     Ok(result)
 }
+
+pub(super) fn execute_xread(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+    arg_iter.next(); // "STREAMS"
+    let args = arg_iter
+        .map(|v| v.into_bulk_bytes())
+        .collect::<Result<Vec<Bytes>>>()?;
+    let (stream_keys, ids) = args.split_at(args.len() / 2);
+    let result = match db.xread(stream_keys, ids)? {
+        Some(pairs) => {
+            let mut frames: Vec<Value> = Vec::with_capacity(pairs.len());
+            for (stream_key, entrys) in pairs {
+                let mut frame: Vec<Value> = Vec::with_capacity(2);
+                frame.push(Value::BulkStrings(stream_key));
+                frame.push(entrys.into());
+
+                frames.push(Value::Arrays(frame));
+            }
+            Value::Arrays(frames)
+        }
+        _ => Value::EmptyArrays,
+    };
+    Ok(result)
+}

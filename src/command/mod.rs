@@ -23,6 +23,7 @@ pub enum Command {
     Type(IntoIter<Value>),
     Xadd(IntoIter<Value>),
     Xrange(IntoIter<Value>),
+    Xread(IntoIter<Value>),
 }
 
 impl Command {
@@ -49,6 +50,7 @@ impl Command {
                     "TYPE" => Command::Type(cmd_iter),
                     "XADD" => Command::Xadd(cmd_iter),
                     "XRANGE" => Command::Xrange(cmd_iter),
+                    "XREAD" => Command::Xread(cmd_iter),
                     _ => bail!("unsupported command!"),
                 };
                 return Ok(cmd);
@@ -76,6 +78,7 @@ impl Command {
             Command::Llen(args) => list::execute_llen(args, db),
             Command::Xadd(args) => stream::execute_xadd(args, db),
             Command::Xrange(args) => stream::execute_xrange(args, db),
+            Command::Xread(args) => stream::execute_xread(args, db),
         }
     }
 }
