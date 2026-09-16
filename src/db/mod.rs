@@ -3,7 +3,7 @@ mod redis_object;
 mod signal;
 mod stream;
 
-use anyhow::{Result, bail};
+use anyhow::{Result, anyhow, bail};
 use bytes::Bytes;
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
@@ -76,6 +76,34 @@ impl MemoryDB {
 
     pub fn set(&self, key: Bytes, bytes: Bytes) {
         self.set_with_ttl(key, bytes, DAY_IN_MILLIS);
+    }
+
+    pub fn incr(&self, key: Bytes) -> Result<i64> {
+        match self.map.entry(key) {
+            dashmap::Entry::Occupied(mut entry) => {
+                let item = entry.get_mut();
+                match &mut item.object {
+                    RedisObject::String(val_bytes) => {
+                        let val_str = std::str::from_utf8(&val_bytes)
+                            .map_err(|_| anyhow!("ERR value is not an integer or out of range"))?;
+                        let mut val: i64 = val_str
+                            .parse()
+                            .map_err(|_| anyhow!("ERR value is not an integer or out of range"))?;
+                        val = val
+                            .checked_add(1)
+                            .ok_or_else(|| anyhow!("ERR increment or decrement would overflow"))?;
+
+                        *val_bytes = Bytes::from(val.to_string());
+                        Ok(val)
+                    }
+                    _ => bail!("WRONGTYPE Operation against a key holding the wrong kind of value"),
+                }
+            }
+            dashmap::Entry::Vacant(entry) => {
+                entry.insert(MemoItem::new(RedisObject::new_integer(1)));
+                Ok(1)
+            }
+        }
     }
 
     pub fn set_with_ttl(&self, key: Bytes, bytes: Bytes, ttl_ms: i64) {

@@ -11,6 +11,10 @@ pub enum RedisObject {
 }
 
 impl RedisObject {
+    pub fn new_integer(val: i64) -> Self {
+        Self::String(Bytes::from(val.to_string()))
+    }
+
     pub fn new_list(name: Bytes) -> Self {
         Self::List(Arc::new(ReList::new(name)))
     }

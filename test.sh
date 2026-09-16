@@ -14,6 +14,9 @@ STAGES=(
   "mh6" "tn7" "lx4" "sf6" "ri1" "gu5" "fv6" "ef1" "jp1" "ec3" "xj7"
   # streams
   "cc3" "cf6" "hq8" "yh3" "xu6" "zx1" "yp1" "fs1" "um0" "ru9" "bs1" "hw1" "xu1"
+  # transactions
+  
+  "si4" "lz8" "mk1" "pn0" "lo4" "we1" "rs9" "fy6" "rl9" "sg9" "jf8"
 )
 
 TARGET_SLUG=$1

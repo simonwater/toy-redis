@@ -24,6 +24,7 @@ pub enum Command {
     Xadd(IntoIter<Value>),
     Xrange(IntoIter<Value>),
     Xread(IntoIter<Value>),
+    Incr(IntoIter<Value>),
 }
 
 impl Command {
@@ -51,6 +52,7 @@ impl Command {
                     "XADD" => Command::Xadd(cmd_iter),
                     "XRANGE" => Command::Xrange(cmd_iter),
                     "XREAD" => Command::Xread(cmd_iter),
+                    "INCR" => Command::Incr(cmd_iter),
                     _ => bail!("unsupported command!"),
                 };
                 return Ok(cmd);
@@ -67,6 +69,7 @@ impl Command {
             Command::Echo(args) => execute_echo(args, db),
             Command::Set(args) => execute_set(args, db),
             Command::Get(args) => execute_get(args, db),
+            Command::Incr(args) => execute_incr(args, db),
             Command::Type(args) => execute_type(args, db),
             Command::Rpush(args) => list::execute_rpush(args, db),
             Command::Lpush(args) => list::execute_lpush(args, db),
@@ -140,4 +143,13 @@ fn execute_type(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Val
         .into_bulk_bytes()?;
     let t = db.obj_type(&key);
     Ok(Value::SimpleStrings(t))
+}
+
+fn execute_incr(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+    let key = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("ERR Incr command missing key"))?
+        .into_bulk_bytes()?;
+    let result = db.incr(key)?;
+    Ok(Value::Integer(result))
 }
