@@ -1,6 +1,7 @@
 use crate::MemoryDB;
 use crate::Value;
-use anyhow::{Result, anyhow};
+use anyhow::bail;
+use anyhow::{Ok, Result, anyhow};
 use bytes::Bytes;
 use std::sync::Arc;
 use std::vec::IntoIter;
@@ -42,12 +43,30 @@ pub(super) fn execute_xrange(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) 
 }
 
 pub(super) fn execute_xread(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
-    arg_iter.next(); // "STREAMS"
+    let Some(arg1) = arg_iter.next() else {
+        bail!("xread format error")
+    };
+    let mut timeout_in_milli: Option<i64> = None;
+    if &arg1.into_string()?.to_uppercase() == "BLOCK" {
+        let arg2 = arg_iter
+            .next()
+            .ok_or_else(|| anyhow!("xread command need timeout argument in block mode!"))?;
+        timeout_in_milli = Some(arg2.into_integer()?);
+        arg_iter.next(); // streams
+    }
+
     let args = arg_iter
         .map(|v| v.into_bulk_bytes())
         .collect::<Result<Vec<Bytes>>>()?;
-    let (stream_keys, ids) = args.split_at(args.len() / 2);
-    let result = match db.xread(stream_keys, ids)? {
+    let args_len = args.len();
+    let (stream_keys, ids) = args.split_at(args_len / 2);
+    let db_result = if let Some(t) = timeout_in_milli {
+        db.block_xread(stream_keys.to_vec(), ids.to_vec(), t)?
+    } else {
+        db.xread(stream_keys, ids)?
+    };
+
+    let result = match db_result {
         Some(pairs) => {
             let mut frames: Vec<Value> = Vec::with_capacity(pairs.len());
             for (stream_key, entrys) in pairs {
@@ -59,7 +78,13 @@ pub(super) fn execute_xread(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -
             }
             Value::Arrays(frames)
         }
-        _ => Value::EmptyArrays,
+        None => {
+            if timeout_in_milli.is_none() {
+                Value::EmptyArrays
+            } else {
+                Value::NullArrays
+            }
+        }
     };
     Ok(result)
 }

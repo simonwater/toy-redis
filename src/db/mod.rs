@@ -1,5 +1,6 @@
 mod list;
 mod redis_object;
+mod signal;
 mod stream;
 
 use anyhow::{Result, bail};
@@ -10,6 +11,7 @@ use redis_object::RedisObject;
 use std::sync::Arc;
 
 pub use list::ReList;
+pub(crate) use signal::Signal;
 pub use stream::{ReStream, StreamEntry};
 
 pub const DAY_IN_MILLIS: i64 = 1000 * 60 * 60 * 24;
@@ -197,14 +199,87 @@ impl MemoryDB {
         }
         let mut results = Vec::with_capacity(stream_keys.len());
         for (stream_key, id) in stream_keys.iter().zip(entry_ids) {
-            let entrys = if let Some(stream_arc) = self.get_stream(&stream_key)? {
-                stream_arc.xread(id)?
-            } else {
-                Vec::new()
-            };
+            let stream_arc = self.get_or_create_stream(stream_key.clone())?;
+
+            let entrys = stream_arc.xread(id)?;
+
             results.push((stream_key.clone(), entrys));
         }
 
         Ok(Some(results))
+    }
+
+    pub fn block_xread(
+        &self,
+        stream_keys: Vec<Bytes>,
+        mut entry_ids: Vec<Bytes>,
+        mut timeout_in_milli: i64,
+    ) -> Result<Option<Vec<(Bytes, Vec<StreamEntry>)>>> {
+        if stream_keys.is_empty() || stream_keys.len() != entry_ids.len() {
+            bail!("ERR stream keys ans entry ids format error");
+        }
+        if timeout_in_milli <= 0 || timeout_in_milli > 3600_000 {
+            timeout_in_milli = 3600_000;
+        }
+        let total_dur = Duration::milliseconds(timeout_in_milli);
+        let expr_at = Utc::now() + total_dur; // 过期时间
+
+        self.handle_stream_id(&stream_keys, &mut entry_ids)?;
+        let mut results = Vec::with_capacity(stream_keys.len());
+        if self.try_xread_without_empty(&stream_keys, &entry_ids, &mut results)? {
+            return Ok(Some(results));
+        }
+        let signal = Arc::new(Signal::new());
+        self.register_signal(&stream_keys, &signal)?;
+        loop {
+            let is_notified = signal.wait_until(expr_at);
+            // 超时边界的数据都满足要求
+            if self.try_xread_without_empty(&stream_keys, &entry_ids, &mut results)? {
+                return Ok(Some(results));
+            }
+            if !is_notified {
+                // 超时
+                return Ok(None);
+            }
+        }
+    }
+
+    fn handle_stream_id(&self, stream_keys: &[Bytes], entry_ids: &mut [Bytes]) -> Result<()> {
+        for i in 0..stream_keys.len() {
+            let stream_arc = self.get_or_create_stream(stream_keys[i].clone())?;
+            if "$" == std::str::from_utf8(&entry_ids[i])? {
+                let id_bytes = if let Some(entry) = stream_arc.last() {
+                    entry.get_id().to_bytes()
+                } else {
+                    Bytes::from("0-0")
+                };
+                entry_ids[i] = id_bytes;
+            }
+        }
+        Ok(())
+    }
+
+    fn register_signal(&self, stream_keys: &[Bytes], signal: &Arc<Signal>) -> Result<()> {
+        for stream_key in stream_keys {
+            let stream_arc = self.get_or_create_stream(stream_key.clone())?;
+            stream_arc.register_waiter(Arc::clone(signal));
+        }
+        Ok(())
+    }
+
+    fn try_xread_without_empty(
+        &self,
+        stream_keys: &[Bytes],
+        entry_ids: &[Bytes],
+        results: &mut Vec<(Bytes, Vec<StreamEntry>)>,
+    ) -> Result<bool> {
+        for (stream_key, id) in stream_keys.iter().zip(entry_ids) {
+            let stream_arc = self.get_or_create_stream(stream_key.clone())?;
+            let entrys = stream_arc.xread(id)?;
+            if !entrys.is_empty() {
+                results.push((stream_key.clone(), entrys));
+            }
+        }
+        Ok(!results.is_empty())
     }
 }
