@@ -1,5 +1,8 @@
 mod list;
 mod stream;
+mod trans;
+
+pub use trans::Transaction;
 
 use crate::Value;
 use crate::{MemoryDB, db};
@@ -25,6 +28,9 @@ pub enum Command {
     Xrange(IntoIter<Value>),
     Xread(IntoIter<Value>),
     Incr(IntoIter<Value>),
+    Multi,
+    Exec,
+    Discard,
 }
 
 impl Command {
@@ -53,6 +59,9 @@ impl Command {
                     "XRANGE" => Command::Xrange(cmd_iter),
                     "XREAD" => Command::Xread(cmd_iter),
                     "INCR" => Command::Incr(cmd_iter),
+                    "MULTI" => Command::Multi,
+                    "EXEC" => Command::Exec,
+                    "DISCARD" => Command::Discard,
                     _ => bail!("unsupported command!"),
                 };
                 return Ok(cmd);
@@ -82,6 +91,7 @@ impl Command {
             Command::Xadd(args) => stream::execute_xadd(args, db),
             Command::Xrange(args) => stream::execute_xrange(args, db),
             Command::Xread(args) => stream::execute_xread(args, db),
+            Command::Multi | Command::Exec | Command::Discard => unreachable!(),
         }
     }
 }

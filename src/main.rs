@@ -4,7 +4,7 @@ use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread;
-use toy_redis::{Command, MemoryDB, Value};
+use toy_redis::{Command, MemoryDB, Transaction, Value};
 
 fn main() {
     let db_rc: Arc<MemoryDB> = Arc::new(MemoryDB::new());
@@ -35,6 +35,8 @@ fn main() {
 fn handle_connection(stream: &mut TcpStream, db: Arc<MemoryDB>) -> Result<()> {
     let mut buffer = BytesMut::with_capacity(4096);
     let mut tmp_buf = [0u8; 1024];
+    let mut trans = Transaction::new();
+
     loop {
         let read_cnt = stream.read(&mut tmp_buf)?;
         if read_cnt == 0 {
@@ -43,7 +45,7 @@ fn handle_connection(stream: &mut TcpStream, db: Arc<MemoryDB>) -> Result<()> {
         buffer.extend_from_slice(&tmp_buf[..read_cnt]);
         let bytes: Bytes = buffer.split_to(read_cnt).freeze();
 
-        let output = match handle_request(bytes, &db) {
+        let output = match handle_command(bytes, &db, &mut trans) {
             Ok(output) => output,
             Err(e) => Value::SimpleErrors(format!("{}", e)),
         };
@@ -52,12 +54,13 @@ fn handle_connection(stream: &mut TcpStream, db: Arc<MemoryDB>) -> Result<()> {
     }
 }
 
-fn handle_request(bytes: Bytes, db: &Arc<MemoryDB>) -> Result<Value> {
+fn handle_command(bytes: Bytes, db: &Arc<MemoryDB>, trans: &mut Transaction) -> Result<Value> {
     let input = Value::from(bytes)?;
     let Value::Arrays(values) = input else {
         bail!("input format error!")
     };
+
     let cmd = Command::new(values)?;
-    let res = cmd.execute(db)?;
+    let res = trans.handle_command(cmd, db)?;
     Ok(res)
 }
