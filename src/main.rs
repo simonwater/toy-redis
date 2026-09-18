@@ -8,7 +8,7 @@ use toy_redis::{Command, MemoryDB, Transaction, Value};
 
 fn main() {
     let db_rc: Arc<MemoryDB> = Arc::new(MemoryDB::new());
-    println!("Redis is started!");
+    println!("Server is started!");
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
 
     for stream in listener.incoming() {
@@ -61,6 +61,6 @@ fn handle_command(bytes: Bytes, db: &Arc<MemoryDB>, trans: &mut Transaction) -> 
     };
 
     let cmd = Command::new(values)?;
-    let res = trans.handle_command(cmd, db)?;
+    let res = cmd.execute(db, trans)?;
     Ok(res)
 }

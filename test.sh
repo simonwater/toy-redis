@@ -12,11 +12,12 @@ STAGES=(
   "jm1" "rg2" "wy1" "zu2" "qq0" "la7" "yz1"
   # Lists
   "mh6" "tn7" "lx4" "sf6" "ri1" "gu5" "fv6" "ef1" "jp1" "ec3" "xj7"
-  # streams
+  # Streams
   "cc3" "cf6" "hq8" "yh3" "xu6" "zx1" "yp1" "fs1" "um0" "ru9" "bs1" "hw1" "xu1"
-  # transactions
-  
+  # Transactions
   "si4" "lz8" "mk1" "pn0" "lo4" "we1" "rs9" "fy6" "rl9" "sg9" "jf8"
+  # Optimistic locking
+  "jb7" "jq9" "mh8" "fp0" "uo9" "bn1" "fn4" "hq1"
 )
 
 TARGET_SLUG=$1
