@@ -20,6 +20,7 @@ pub const DAY_IN_MILLIS: i64 = 1000 * 60 * 60 * 24;
 struct MemoItem {
     object: RedisObject,
     expire_timestamp_ms: i64, // 毫秒表示的过期时间戳
+    version: u64,
 }
 
 impl MemoItem {
@@ -36,6 +37,7 @@ impl MemoItem {
         Self {
             object,
             expire_timestamp_ms,
+            version: 1,
         }
     }
 
@@ -74,6 +76,15 @@ impl MemoryDB {
         return Ok(None);
     }
 
+    pub fn get_version(&self, key: &Bytes) -> Option<u64> {
+        if let Some(entry) = self.map.get(key)
+            && !entry.is_expired()
+        {
+            return Some(entry.version);
+        }
+        None
+    }
+
     pub fn set(&self, key: Bytes, bytes: Bytes) {
         self.set_with_ttl(key, bytes, DAY_IN_MILLIS);
     }
@@ -107,8 +118,11 @@ impl MemoryDB {
     }
 
     pub fn set_with_ttl(&self, key: Bytes, bytes: Bytes, ttl_ms: i64) {
-        let item = MemoItem::with_ttl(RedisObject::String(bytes), ttl_ms);
-        self.map.insert(key, item);
+        let mut e = self
+            .map
+            .entry(key)
+            .or_insert_with(|| MemoItem::with_ttl(RedisObject::String(bytes), ttl_ms));
+        e.value_mut().version = 1;
     }
 }
 

@@ -3,6 +3,8 @@ use crate::Value;
 use crate::command::imme_command::ImmeCommand;
 use anyhow::bail;
 use anyhow::{Result, anyhow};
+use bytes::Bytes;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::vec::IntoIter;
 
@@ -26,11 +28,15 @@ impl TransCommand {
 
 pub struct Transaction {
     commands: Option<Vec<ImmeCommand>>,
+    watchs: HashMap<Bytes, u64>,
 }
 
 impl Transaction {
     pub fn new() -> Self {
-        Self { commands: None }
+        Self {
+            commands: None,
+            watchs: HashMap::with_capacity(16),
+        }
     }
 
     pub fn is_started(&self) -> bool {
@@ -62,6 +68,19 @@ impl Transaction {
 
         let mut res: Vec<Value> = Vec::with_capacity(commands.len());
         for cmd in commands.into_iter() {
+            match &cmd {
+                ImmeCommand::Set(iter) | ImmeCommand::Get(iter) | ImmeCommand::Incr(iter) => {
+                    let key = iter
+                        .clone()
+                        .next()
+                        .ok_or_else(|| anyhow!("command missing key!"))?
+                        .into_bulk_bytes()?;
+                    if self.is_dirty(key, db) {
+                        bail!("queued commands discarded")
+                    }
+                }
+                _ => {}
+            };
             let cmd_res = match cmd.execute(db, self) {
                 Ok(val) => val,
                 Err(e) => Value::SimpleErrors(format!("{}", e)),
@@ -80,11 +99,23 @@ impl Transaction {
         Ok(Value::SimpleStrings("OK".into()))
     }
 
-    fn watch(&mut self, mut _arg_iter: IntoIter<Value>, _db: &Arc<MemoryDB>) -> Result<Value> {
+    fn watch(&mut self, arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
         if self.is_started() {
             bail!("ERR WATCH inside MULTI is not allowed")
         }
-        
+        for key in arg_iter {
+            let key = key.into_bulk_bytes()?;
+            let version = db.get_version(&key).unwrap_or(0);
+            self.watchs.insert(key, version);
+        }
         Ok(Value::SimpleStrings("OK".into()))
+    }
+
+    fn is_dirty(&self, key: Bytes, db: &Arc<MemoryDB>) -> bool {
+        let Some(watch_ver) = self.watchs.get(&key).copied() else {
+            return false;
+        };
+        let db_ver = db.get_version(&key).unwrap_or(0);
+        return watch_ver != db_ver;
     }
 }
