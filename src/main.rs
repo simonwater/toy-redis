@@ -40,7 +40,7 @@ fn handle_connection(stream: &mut TcpStream, db: Arc<MemoryDB>) -> Result<()> {
     loop {
         let read_cnt = stream.read(&mut tmp_buf)?;
         if read_cnt == 0 {
-            bail!("input is empty!")
+            return Ok(());
         }
         buffer.extend_from_slice(&tmp_buf[..read_cnt]);
         let bytes: Bytes = buffer.split_to(read_cnt).freeze();

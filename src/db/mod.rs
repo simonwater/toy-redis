@@ -16,10 +16,28 @@ pub use stream::{ReStream, StreamEntry};
 
 pub const DAY_IN_MILLIS: i64 = 1000 * 60 * 60 * 24;
 
+#[derive(Clone, Copy, Debug)]
+struct ExpirationTimestamp(i64);
+
+impl ExpirationTimestamp {
+    fn from_ttl(mut ttl_ms: i64) -> Self {
+        if ttl_ms <= 0 {
+            ttl_ms = DAY_IN_MILLIS;
+        }
+        let expire_at = Utc::now() + Duration::milliseconds(ttl_ms);
+        let expire_timestamp_ms = expire_at.timestamp_millis();
+        Self(expire_timestamp_ms)
+    }
+
+    fn is_expired(&self) -> bool {
+        Utc::now().timestamp_millis() >= self.0
+    }
+}
+
 #[derive(Debug)]
 struct MemoItem {
     object: RedisObject,
-    expire_timestamp_ms: i64, // 毫秒表示的过期时间戳
+    expire_timestamp_ms: ExpirationTimestamp, // 毫秒表示的过期时间戳
     version: u64,
 }
 
@@ -28,21 +46,16 @@ impl MemoItem {
         Self::with_ttl(object, 0)
     }
 
-    fn with_ttl(object: RedisObject, mut ttl_ms: i64) -> Self {
-        if ttl_ms <= 0 {
-            ttl_ms = DAY_IN_MILLIS;
-        }
-        let expire_at = Utc::now() + Duration::milliseconds(ttl_ms);
-        let expire_timestamp_ms = expire_at.timestamp_millis();
+    fn with_ttl(object: RedisObject, ttl_ms: i64) -> Self {
         Self {
             object,
-            expire_timestamp_ms,
-            version: 1,
+            expire_timestamp_ms: ExpirationTimestamp::from_ttl(ttl_ms),
+            version: 0,
         }
     }
 
     fn is_expired(&self) -> bool {
-        Utc::now().timestamp_millis() >= self.expire_timestamp_ms
+        self.expire_timestamp_ms.is_expired()
     }
 }
 
@@ -121,8 +134,10 @@ impl MemoryDB {
         let mut e = self
             .map
             .entry(key)
-            .or_insert_with(|| MemoItem::with_ttl(RedisObject::String(bytes), ttl_ms));
-        e.value_mut().version = 1;
+            .or_insert_with(|| MemoItem::with_ttl(RedisObject::String(bytes.clone()), ttl_ms));
+        let item = e.value_mut();
+        item.version += 1;
+        item.object = RedisObject::String(bytes);
     }
 }
 

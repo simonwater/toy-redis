@@ -10,6 +10,7 @@ use std::vec::IntoIter;
 
 pub enum TransCommand {
     Watch(IntoIter<Value>),
+    Unwatch,
     Multi,
     Exec,
     Discard,
@@ -22,20 +23,21 @@ impl TransCommand {
             Self::Exec => trans.exec(db),
             Self::Discard => trans.discard(),
             Self::Watch(args) => trans.watch(args, db),
+            Self::Unwatch => trans.unwatch(),
         }
     }
 }
 
 pub struct Transaction {
     commands: Option<Vec<ImmeCommand>>,
-    watchs: HashMap<Bytes, u64>,
+    watchs: Option<HashMap<Bytes, u64>>,
 }
 
 impl Transaction {
     pub fn new() -> Self {
         Self {
             commands: None,
-            watchs: HashMap::with_capacity(16),
+            watchs: None,
         }
     }
 
@@ -65,22 +67,12 @@ impl Transaction {
             .commands
             .take()
             .ok_or_else(|| anyhow!("ERR EXEC without MULTI"))?;
-
         let mut res: Vec<Value> = Vec::with_capacity(commands.len());
+
+        if Self::check_dirty(db, self.watchs.take()) {
+            return Ok(Value::NullArrays);
+        }
         for cmd in commands.into_iter() {
-            match &cmd {
-                ImmeCommand::Set(iter) | ImmeCommand::Get(iter) | ImmeCommand::Incr(iter) => {
-                    let key = iter
-                        .clone()
-                        .next()
-                        .ok_or_else(|| anyhow!("command missing key!"))?
-                        .into_bulk_bytes()?;
-                    if self.is_dirty(key, db) {
-                        bail!("queued commands discarded")
-                    }
-                }
-                _ => {}
-            };
             let cmd_res = match cmd.execute(db, self) {
                 Ok(val) => val,
                 Err(e) => Value::SimpleErrors(format!("{}", e)),
@@ -96,6 +88,7 @@ impl Transaction {
             .take()
             .ok_or_else(|| anyhow!("ERR DISCARD without MULTI"))?;
 
+        self.watchs.take();
         Ok(Value::SimpleStrings("OK".into()))
     }
 
@@ -103,19 +96,32 @@ impl Transaction {
         if self.is_started() {
             bail!("ERR WATCH inside MULTI is not allowed")
         }
+
+        let watchs = self
+            .watchs
+            .get_or_insert_with(|| HashMap::with_capacity(16));
         for key in arg_iter {
             let key = key.into_bulk_bytes()?;
             let version = db.get_version(&key).unwrap_or(0);
-            self.watchs.insert(key, version);
+            watchs.insert(key, version);
         }
         Ok(Value::SimpleStrings("OK".into()))
     }
 
-    fn is_dirty(&self, key: Bytes, db: &Arc<MemoryDB>) -> bool {
-        let Some(watch_ver) = self.watchs.get(&key).copied() else {
-            return false;
-        };
-        let db_ver = db.get_version(&key).unwrap_or(0);
-        return watch_ver != db_ver;
+    fn unwatch(&mut self) -> Result<Value> {
+        self.watchs.take();
+        Ok(Value::SimpleStrings("OK".into()))
+    }
+
+    fn check_dirty(db: &Arc<MemoryDB>, watchs: Option<HashMap<Bytes, u64>>) -> bool {
+        if let Some(watchs) = watchs.as_ref() {
+            for (key, &ver) in watchs.iter() {
+                let db_ver = db.get_version(&key).unwrap_or(0);
+                if ver != db_ver {
+                    return true;
+                }
+            }
+        }
+        false
     }
 }

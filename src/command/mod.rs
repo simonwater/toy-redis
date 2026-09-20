@@ -44,6 +44,7 @@ impl Command {
                     "XREAD" => Self::ImmeCommand(ImmeCommand::Xread(cmd_iter)),
                     "INCR" => Self::ImmeCommand(ImmeCommand::Incr(cmd_iter)),
                     "WATCH" => Self::TransCommand(TransCommand::Watch(cmd_iter)),
+                    "UNWATCH" => Self::TransCommand(TransCommand::Unwatch),
                     "MULTI" => Self::TransCommand(TransCommand::Multi),
                     "EXEC" => Self::TransCommand(TransCommand::Exec),
                     "DISCARD" => Self::TransCommand(TransCommand::Discard),
