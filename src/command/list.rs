@@ -1,11 +1,11 @@
-use crate::MemoryDB;
+use crate::Context;
 use crate::Value;
 use anyhow::{Result, anyhow};
 use bytes::Bytes;
 use std::sync::Arc;
 use std::vec::IntoIter;
 
-pub(super) fn execute_rpush(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+pub(super) fn execute_rpush(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
     let list_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("rpush command missing list key!"))?
@@ -14,11 +14,12 @@ pub(super) fn execute_rpush(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -
         .map(|v| v.into_bulk_bytes())
         .collect::<Result<Vec<Bytes>>>()?;
 
+    let db = ctx.db_ref();
     let len = db.rpush(list_key, args)?;
     Ok(Value::Integer(len))
 }
 
-pub(super) fn execute_lpush(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+pub(super) fn execute_lpush(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
     let list_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("lpush command missing list key!"))?
@@ -27,11 +28,12 @@ pub(super) fn execute_lpush(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -
         .map(|v| v.into_bulk_bytes())
         .collect::<Result<Vec<Bytes>>>()?;
 
+    let db = ctx.db_ref();
     let len = db.lpush(list_key, args)?;
     Ok(Value::Integer(len))
 }
 
-pub(super) fn execute_lrange(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+pub(super) fn execute_lrange(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
     let list_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("lrange command missing list key!"))?
@@ -45,23 +47,25 @@ pub(super) fn execute_lrange(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) 
         .ok_or_else(|| anyhow!("lrange command missing end index."))?
         .into_integer()?;
 
+    let db = ctx.db_ref();
     match db.lrange(list_key, start, end)? {
         Some(bytes_vec) => Ok(bytes_vec.into()),
         _ => return Ok(Value::EmptyArrays),
     }
 }
 
-pub(super) fn execute_llen(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+pub(super) fn execute_llen(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
     let list_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("llen command missing list key!"))?
         .into_bulk_bytes()?;
 
+    let db = ctx.db_ref();
     let len = db.llen(list_key)?;
     Ok(Value::Integer(len))
 }
 
-pub(super) fn execute_lpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+pub(super) fn execute_lpop(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
     let list_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("lpop command missing list key!"))?
@@ -71,6 +75,7 @@ pub(super) fn execute_lpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) ->
         .unwrap_or_else(|| Value::Integer(1))
         .into_integer()?;
 
+    let db = ctx.db_ref();
     match db.lpop(list_key, cnt)? {
         Some(bytes_vec) => {
             if cnt == 1 {
@@ -83,7 +88,7 @@ pub(super) fn execute_lpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) ->
     }
 }
 
-pub(super) fn execute_rpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+pub(super) fn execute_rpop(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
     let list_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("rpop command missing list key!"))?
@@ -93,6 +98,7 @@ pub(super) fn execute_rpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) ->
         .unwrap_or_else(|| Value::Integer(1))
         .into_integer()?;
 
+    let db = ctx.db_ref();
     match db.rpop(list_key, cnt)? {
         Some(bytes_vec) => {
             if cnt == 1 {
@@ -105,7 +111,7 @@ pub(super) fn execute_rpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) ->
     }
 }
 
-pub(super) fn execute_blpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+pub(super) fn execute_blpop(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
     let list_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("blpop command missing list key!"))?
@@ -115,6 +121,7 @@ pub(super) fn execute_blpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -
         .unwrap_or_else(|| Value::Integer(1))
         .into_double()?;
 
+    let db = ctx.db_ref();
     match db.blpop(list_key.clone(), timeout)? {
         Some(bytes) => {
             let bytes_vec = vec![list_key.clone(), bytes];
@@ -124,7 +131,7 @@ pub(super) fn execute_blpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -
     }
 }
 
-pub(super) fn execute_brpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+pub(super) fn execute_brpop(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
     let list_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("brpop command missing list key!"))?
@@ -134,6 +141,7 @@ pub(super) fn execute_brpop(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -
         .unwrap_or_else(|| Value::Integer(1))
         .into_double()?;
 
+    let db = ctx.db_ref();
     match db.brpop(list_key.clone(), timeout)? {
         Some(bytes) => {
             let bytes_vec = vec![list_key.clone(), bytes];

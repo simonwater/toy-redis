@@ -5,7 +5,7 @@ mod trans;
 
 pub use trans::Transaction;
 
-use crate::MemoryDB;
+use crate::Context;
 use crate::Value;
 use crate::command::imme_command::ImmeCommand;
 use crate::command::trans::TransCommand;
@@ -58,10 +58,10 @@ impl Command {
         }
     }
 
-    pub fn execute(self, db: &Arc<MemoryDB>, trans: &mut Transaction) -> Result<Value> {
+    pub fn execute(self, ctx: &Arc<Context>, trans: &mut Transaction) -> Result<Value> {
         match self {
-            Self::ImmeCommand(imme_cmd) => imme_cmd.execute(db, trans),
-            Self::TransCommand(trans_cmd) => trans_cmd.execute(db, trans),
+            Self::ImmeCommand(imme_cmd) => imme_cmd.execute(ctx, trans),
+            Self::TransCommand(trans_cmd) => trans_cmd.execute(ctx, trans),
         }
     }
 }

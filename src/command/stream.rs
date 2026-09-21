@@ -1,4 +1,4 @@
-use crate::MemoryDB;
+use crate::Context;
 use crate::Value;
 use anyhow::bail;
 use anyhow::{Ok, Result, anyhow};
@@ -6,7 +6,7 @@ use bytes::Bytes;
 use std::sync::Arc;
 use std::vec::IntoIter;
 
-pub(super) fn execute_xadd(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+pub(super) fn execute_xadd(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
     let stream_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("xadd command missing key!"))?
@@ -18,11 +18,12 @@ pub(super) fn execute_xadd(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) ->
     let args = arg_iter
         .map(|v| v.into_bulk_bytes())
         .collect::<Result<Vec<Bytes>>>()?;
+    let db = ctx.db_ref();
     let id = db.xadd(stream_key, entry_id, args)?;
     Ok(Value::BulkStrings(id))
 }
 
-pub(super) fn execute_xrange(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+pub(super) fn execute_xrange(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
     let stream_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("xrange command missing key!"))?
@@ -35,6 +36,7 @@ pub(super) fn execute_xrange(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) 
         .next()
         .ok_or_else(|| anyhow!("xrange command missing end entry id!"))?
         .into_bulk_bytes()?;
+    let db = ctx.db_ref();
     let result = match db.xrange(stream_key, start, end)? {
         Some(entrys) => entrys.into(),
         _ => Value::EmptyArrays,
@@ -42,7 +44,7 @@ pub(super) fn execute_xrange(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) 
     Ok(result)
 }
 
-pub(super) fn execute_xread(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+pub(super) fn execute_xread(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
     let Some(arg1) = arg_iter.next() else {
         bail!("xread format error")
     };
@@ -59,6 +61,7 @@ pub(super) fn execute_xread(mut arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -
         .map(|v| v.into_bulk_bytes())
         .collect::<Result<Vec<Bytes>>>()?;
     let args_len = args.len();
+    let db = ctx.db_ref();
     let (stream_keys, ids) = args.split_at(args_len / 2);
     let db_result = if let Some(t) = timeout_in_milli {
         db.block_xread(stream_keys.to_vec(), ids.to_vec(), t)?

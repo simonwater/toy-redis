@@ -1,4 +1,4 @@
-use crate::MemoryDB;
+use crate::Context;
 use crate::Value;
 use crate::command::imme_command::ImmeCommand;
 use anyhow::bail;
@@ -17,12 +17,12 @@ pub enum TransCommand {
 }
 
 impl TransCommand {
-    pub fn execute(self, db: &Arc<MemoryDB>, trans: &mut Transaction) -> Result<Value> {
+    pub fn execute(self, ctx: &Arc<Context>, trans: &mut Transaction) -> Result<Value> {
         match self {
             Self::Multi => trans.start(),
-            Self::Exec => trans.exec(db),
+            Self::Exec => trans.exec(ctx),
             Self::Discard => trans.discard(),
-            Self::Watch(args) => trans.watch(args, db),
+            Self::Watch(args) => trans.watch(args, ctx),
             Self::Unwatch => trans.unwatch(),
         }
     }
@@ -62,18 +62,18 @@ impl Transaction {
         Ok(Value::SimpleStrings("OK".into()))
     }
 
-    fn exec(&mut self, db: &Arc<MemoryDB>) -> Result<Value> {
+    fn exec(&mut self, ctx: &Arc<Context>) -> Result<Value> {
         let commands = self
             .commands
             .take()
             .ok_or_else(|| anyhow!("ERR EXEC without MULTI"))?;
         let mut res: Vec<Value> = Vec::with_capacity(commands.len());
 
-        if Self::check_dirty(db, self.watchs.take()) {
+        if Self::check_dirty(ctx, self.watchs.take()) {
             return Ok(Value::NullArrays);
         }
         for cmd in commands.into_iter() {
-            let cmd_res = match cmd.execute(db, self) {
+            let cmd_res = match cmd.execute(ctx, self) {
                 Ok(val) => val,
                 Err(e) => Value::SimpleErrors(format!("{}", e)),
             };
@@ -92,7 +92,7 @@ impl Transaction {
         Ok(Value::SimpleStrings("OK".into()))
     }
 
-    fn watch(&mut self, arg_iter: IntoIter<Value>, db: &Arc<MemoryDB>) -> Result<Value> {
+    fn watch(&mut self, arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
         if self.is_started() {
             bail!("ERR WATCH inside MULTI is not allowed")
         }
@@ -100,6 +100,7 @@ impl Transaction {
         let watchs = self
             .watchs
             .get_or_insert_with(|| HashMap::with_capacity(16));
+        let db = ctx.db_ref();
         for key in arg_iter {
             let key = key.into_bulk_bytes()?;
             let version = db.get_version(&key).unwrap_or(0);
@@ -113,8 +114,9 @@ impl Transaction {
         Ok(Value::SimpleStrings("OK".into()))
     }
 
-    fn check_dirty(db: &Arc<MemoryDB>, watchs: Option<HashMap<Bytes, u64>>) -> bool {
+    fn check_dirty(ctx: &Arc<Context>, watchs: Option<HashMap<Bytes, u64>>) -> bool {
         if let Some(watchs) = watchs.as_ref() {
+            let db = ctx.db_ref();
             for (key, &ver) in watchs.iter() {
                 let db_ver = db.get_version(&key).unwrap_or(0);
                 if ver != db_ver {

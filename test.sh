@@ -18,6 +18,9 @@ STAGES=(
   "si4" "lz8" "mk1" "pn0" "lo4" "we1" "rs9" "fy6" "rl9" "sg9" "jf8"
   # Optimistic locking
   "jb7" "jq9" "mh8" "fp0" "uo9" "bn1" "fn4" "hq1"
+  # Replication
+  "bw1" "ye5" "hc6" "xc1" "gl7" "eh4" "ju6" "fj0" "vm3" "cf8" "zn8" "hd5" "yg4"
+  "xv6" "yd3" "my8" "tu8" "na2"
 )
 
 TARGET_SLUG=$1
