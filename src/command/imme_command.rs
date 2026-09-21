@@ -1,6 +1,8 @@
 use super::{Transaction, list, stream};
+use crate::info::SectionType;
 use crate::{Context, Value, db};
 use anyhow::{Result, anyhow, bail};
+use bytes::Bytes;
 use std::sync::Arc;
 use std::vec::IntoIter;
 
@@ -22,6 +24,7 @@ pub enum ImmeCommand {
     Xrange(IntoIter<Value>),
     Xread(IntoIter<Value>),
     Incr(IntoIter<Value>),
+    Info(IntoIter<Value>),
 }
 
 impl ImmeCommand {
@@ -37,6 +40,7 @@ impl ImmeCommand {
             Self::Get(args) => execute_get(args, ctx),
             Self::Incr(args) => execute_incr(args, ctx),
             Self::Type(args) => execute_type(args, ctx),
+            Self::Info(args) => execute_info(args, ctx),
             Self::Rpush(args) => list::execute_rpush(args, ctx),
             Self::Lpush(args) => list::execute_lpush(args, ctx),
             Self::Rpop(args) => list::execute_rpop(args, ctx),
@@ -122,4 +126,12 @@ fn execute_incr(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Val
     let db = ctx.db_ref();
     let result = db.incr(key)?;
     Ok(Value::Integer(result))
+}
+
+fn execute_info(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
+    let section = arg_iter.next().map(|v| v.into_string()).transpose()?;
+    let sec_type = SectionType::new(section);
+    let mut out = String::with_capacity(64);
+    ctx.info_ref().output(sec_type, &mut out);
+    Ok(Value::BulkStrings(Bytes::from(out)))
 }

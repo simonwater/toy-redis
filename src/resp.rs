@@ -3,7 +3,7 @@ use bytes::Bytes;
 
 use crate::db::StreamEntry;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     SimpleStrings(String),
     SimpleErrors(String),

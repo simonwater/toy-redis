@@ -28,6 +28,7 @@ impl Command {
                 let cmd = match name.as_str() {
                     "PING" => Self::ImmeCommand(ImmeCommand::Ping(cmd_iter)),
                     "ECHO" => Self::ImmeCommand(ImmeCommand::Echo(cmd_iter)),
+                    "INFO" => Self::ImmeCommand(ImmeCommand::Info(cmd_iter)),
                     "GET" => Self::ImmeCommand(ImmeCommand::Get(cmd_iter)),
                     "SET" => Self::ImmeCommand(ImmeCommand::Set(cmd_iter)),
                     "RPUSH" => Self::ImmeCommand(ImmeCommand::Rpush(cmd_iter)),
