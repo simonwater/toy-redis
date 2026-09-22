@@ -62,4 +62,8 @@ impl Information {
             self.repl.output(out);
         }
     }
+
+    pub fn get_master_replid(&self) -> &str {
+        &self.repl.master_replid
+    }
 }

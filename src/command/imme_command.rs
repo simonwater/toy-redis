@@ -144,6 +144,8 @@ fn execute_replconf(mut _arg_iter: IntoIter<Value>, _ctx: &Arc<Context>) -> Resu
     Ok(Value::SimpleStrings("OK".into()))
 }
 
-fn execute_psync(mut _arg_iter: IntoIter<Value>, _ctx: &Arc<Context>) -> Result<Value> {
-    Ok(Value::SimpleStrings("OK".into()))
+fn execute_psync(mut _arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
+    let master_id = ctx.info_ref().get_master_replid();
+    let s = format!("FULLRESYNC {} 0", master_id);
+    Ok(Value::SimpleStrings(s))
 }
