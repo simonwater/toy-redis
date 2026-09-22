@@ -36,13 +36,40 @@ fn main() {
 
 fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
     // 从库
-    if let Some(addr) = ctx.args_ref().replicaof.as_deref() {
+    let args = ctx.args_ref();
+    if let Some(addr) = args.replicaof.as_deref() {
         let mut conn = ConnectionHandler::new(addr.replace(" ", ":"))?;
 
         // ping
         let cmd = Value::BulkStrings("PING".into());
         let value = conn.send(cmd)?;
         assert_eq!(value, Value::SimpleStrings("PONG".into()));
+
+        // replconf 1
+        let cmd = vec![
+            Value::BulkStrings("REPLCONF".into()),
+            Value::BulkStrings("listening-port".into()),
+            Value::BulkStrings(Bytes::from(args.port.clone())),
+        ];
+        let value = conn.send(Value::Arrays(cmd))?;
+        assert_eq!(value, Value::SimpleStrings("OK".into()));
+
+        // replconf 2
+        let cmd = vec![
+            Value::BulkStrings("REPLCONF".into()),
+            Value::BulkStrings("capa".into()),
+            Value::BulkStrings("psync2".into()),
+        ];
+        let value = conn.send(Value::Arrays(cmd))?;
+        assert_eq!(value, Value::SimpleStrings("OK".into()));
+
+        // psync
+        let cmd = vec![
+            Value::BulkStrings("PSYNC".into()),
+            Value::BulkStrings("?".into()),
+            Value::BulkStrings("-1".into()),
+        ];
+        let _value = conn.send(Value::Arrays(cmd))?;
     }
     Ok(())
 }

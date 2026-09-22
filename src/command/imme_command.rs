@@ -25,6 +25,8 @@ pub enum ImmeCommand {
     Xread(IntoIter<Value>),
     Incr(IntoIter<Value>),
     Info(IntoIter<Value>),
+    Replconf(IntoIter<Value>),
+    Psync(IntoIter<Value>),
 }
 
 impl ImmeCommand {
@@ -52,6 +54,8 @@ impl ImmeCommand {
             Self::Xadd(args) => stream::execute_xadd(args, ctx),
             Self::Xrange(args) => stream::execute_xrange(args, ctx),
             Self::Xread(args) => stream::execute_xread(args, ctx),
+            Self::Replconf(args) => execute_replconf(args, ctx),
+            Self::Psync(args) => execute_psync(args, ctx),
         }
     }
 }
@@ -134,4 +138,12 @@ fn execute_info(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Val
     let mut out = String::with_capacity(64);
     ctx.info_ref().output(sec_type, &mut out);
     Ok(Value::BulkStrings(Bytes::from(out)))
+}
+
+fn execute_replconf(mut _arg_iter: IntoIter<Value>, _ctx: &Arc<Context>) -> Result<Value> {
+    Ok(Value::SimpleStrings("OK".into()))
+}
+
+fn execute_psync(mut _arg_iter: IntoIter<Value>, _ctx: &Arc<Context>) -> Result<Value> {
+    Ok(Value::SimpleStrings("OK".into()))
 }

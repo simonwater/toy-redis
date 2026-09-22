@@ -49,6 +49,8 @@ impl Command {
                     "MULTI" => Self::TransCommand(TransCommand::Multi),
                     "EXEC" => Self::TransCommand(TransCommand::Exec),
                     "DISCARD" => Self::TransCommand(TransCommand::Discard),
+                    "REPLCONF" => Self::ImmeCommand(ImmeCommand::Replconf(cmd_iter)),
+                    "PSYNC" => Self::ImmeCommand(ImmeCommand::Psync(cmd_iter)),
                     _ => bail!("unsupported command!"),
                 };
                 return Ok(cmd);
