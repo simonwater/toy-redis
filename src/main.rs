@@ -4,7 +4,7 @@ use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread;
-use toy_redis::{Command, Context, Transaction, Value};
+use toy_redis::{Command, ConnectionHandler, Context, Transaction, Value};
 
 fn main() {
     let ctx_arc = Arc::new(Context::new());
@@ -37,18 +37,11 @@ fn main() {
 fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
     // 从库
     if let Some(addr) = ctx.args_ref().replicaof.as_deref() {
-        let mut stream = TcpStream::connect(addr.replace(" ", ":"))?;
-        let mut buffer = BytesMut::with_capacity(4096);
-        let mut tmp_buf = [0u8; 1024];
+        let mut conn = ConnectionHandler::new(addr.replace(" ", ":"))?;
 
         // ping
-        let cmd_name = Value::BulkStrings("PING".into());
-        let bytes = Value::Arrays(vec![cmd_name]);
-        stream.write_all(&bytes.to_bytes())?;
-        let read_cnt = stream.read(&mut tmp_buf)?;
-        buffer.extend_from_slice(&tmp_buf[..read_cnt]);
-        let bytes: Bytes = buffer.split_to(read_cnt).freeze();
-        let value = Value::from(bytes)?;
+        let cmd = Value::BulkStrings("PING".into());
+        let value = conn.send(cmd)?;
         assert_eq!(value, Value::SimpleStrings("PONG".into()));
     }
     Ok(())
