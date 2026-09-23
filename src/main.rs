@@ -1,7 +1,6 @@
 use anyhow::{Result, bail};
-use bytes::{Bytes, BytesMut};
-use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use bytes::Bytes;
+use std::net::TcpListener;
 use std::sync::Arc;
 use std::thread;
 use toy_redis::{Command, ConnectionHandler, Context, Transaction, Value};
@@ -18,12 +17,13 @@ fn main() {
         let ctx = ctx_arc.clone();
         println!("accepted new connection");
         match stream {
-            Ok(mut stream) => {
+            Ok(stream) => {
                 thread::spawn(move || {
-                    if let Err(e) = handle_connection(&mut stream, ctx) {
+                    let mut connection = ConnectionHandler::from_tcp_stream(stream);
+                    if let Err(e) = handle_connection(&mut connection, ctx) {
                         let res = Value::SimpleErrors(format!("{}", e));
                         println!("err: {:?}", res);
-                        stream.write_all(&res.to_bytes()).unwrap();
+                        connection.write_all(&res.to_bytes()).unwrap();
                     }
                 });
             }
@@ -42,7 +42,7 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
 
         // ping
         let cmd = Value::BulkStrings("PING".into());
-        let value = conn.send(cmd)?;
+        let value = conn.send(cmd)?.unwrap();
         assert_eq!(value, Value::SimpleStrings("PONG".into()));
 
         // replconf 1
@@ -51,7 +51,7 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
             Value::BulkStrings("listening-port".into()),
             Value::BulkStrings(Bytes::from(args.port.clone())),
         ];
-        let value = conn.send(Value::Arrays(cmd))?;
+        let value = conn.send(Value::Arrays(cmd))?.unwrap();
         assert_eq!(value, Value::SimpleStrings("OK".into()));
 
         // replconf 2
@@ -60,7 +60,7 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
             Value::BulkStrings("capa".into()),
             Value::BulkStrings("psync2".into()),
         ];
-        let value = conn.send(Value::Arrays(cmd))?;
+        let value = conn.send(Value::Arrays(cmd))?.unwrap();
         assert_eq!(value, Value::SimpleStrings("OK".into()));
 
         // psync
@@ -74,30 +74,20 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
     Ok(())
 }
 
-fn handle_connection(stream: &mut TcpStream, db: Arc<Context>) -> Result<()> {
-    let mut buffer = BytesMut::with_capacity(4096);
-    let mut tmp_buf = [0u8; 1024];
+fn handle_connection(conn: &mut ConnectionHandler, db: Arc<Context>) -> Result<()> {
     let mut trans = Transaction::new();
-
-    loop {
-        let read_cnt = stream.read(&mut tmp_buf)?;
-        if read_cnt == 0 {
-            return Ok(());
-        }
-        buffer.extend_from_slice(&tmp_buf[..read_cnt]);
-        let bytes: Bytes = buffer.split_to(read_cnt).freeze();
-
-        let output = match handle_command(bytes, &db, &mut trans) {
+    while let Some(input) = conn.receive_value()? {
+        let output = match handle_command(input, &db, &mut trans) {
             Ok(output) => output,
             Err(e) => Value::SimpleErrors(format!("{}", e)),
         };
 
-        stream.write_all(&output.to_bytes())?;
+        conn.write_all(&output.to_bytes())?;
     }
+    Ok(())
 }
 
-fn handle_command(bytes: Bytes, ctx: &Arc<Context>, trans: &mut Transaction) -> Result<Value> {
-    let input = Value::from(bytes)?;
+fn handle_command(input: Value, ctx: &Arc<Context>, trans: &mut Transaction) -> Result<Value> {
     let Value::Arrays(values) = input else {
         bail!("input format error!")
     };
