@@ -1,6 +1,5 @@
-use crate::Context;
-use crate::Value;
 use crate::command::imme_command::ImmeCommand;
+use crate::{CommandResponse, Context, Value};
 use anyhow::bail;
 use anyhow::{Result, anyhow};
 use bytes::Bytes;
@@ -17,7 +16,7 @@ pub enum TransCommand {
 }
 
 impl TransCommand {
-    pub fn execute(self, ctx: &Arc<Context>, trans: &mut Transaction) -> Result<Value> {
+    pub fn execute(self, ctx: &Arc<Context>, trans: &mut Transaction) -> Result<CommandResponse> {
         match self {
             Self::Multi => trans.start(),
             Self::Exec => trans.exec(ctx),
@@ -45,24 +44,24 @@ impl Transaction {
         self.commands.is_some()
     }
 
-    pub(super) fn add_command(&mut self, cmd: ImmeCommand) -> Result<Value> {
+    pub(super) fn add_command(&mut self, cmd: ImmeCommand) -> Result<CommandResponse> {
         let commands = self
             .commands
             .as_mut()
             .ok_or_else(|| anyhow!("ERR Transaction is not started, can not add command."))?;
         commands.push(cmd);
-        Ok(Value::SimpleStrings("QUEUED".into()))
+        Ok(Value::SimpleStrings("QUEUED".into()).into())
     }
 
-    pub(super) fn start(&mut self) -> Result<Value> {
+    pub(super) fn start(&mut self) -> Result<CommandResponse> {
         if self.commands.is_none() {
             self.commands = Some(Vec::with_capacity(16));
         }
 
-        Ok(Value::SimpleStrings("OK".into()))
+        Ok(Value::SimpleStrings("OK".into()).into())
     }
 
-    fn exec(&mut self, ctx: &Arc<Context>) -> Result<Value> {
+    fn exec(&mut self, ctx: &Arc<Context>) -> Result<CommandResponse> {
         let commands = self
             .commands
             .take()
@@ -70,29 +69,34 @@ impl Transaction {
         let mut res: Vec<Value> = Vec::with_capacity(commands.len());
 
         if Self::check_dirty(ctx, self.watchs.take()) {
-            return Ok(Value::NullArrays);
+            return Ok(Value::NullArrays.into());
         }
         for cmd in commands.into_iter() {
             let cmd_res = match cmd.execute(ctx, self) {
-                Ok(val) => val,
+                Ok(response) => match response {
+                    CommandResponse::RespValue(value) => value,
+                    _ => {
+                        Value::SimpleErrors(format!("can not execute this command in transaction."))
+                    }
+                },
                 Err(e) => Value::SimpleErrors(format!("{}", e)),
             };
             res.push(cmd_res);
         }
 
-        Ok(Value::Arrays(res))
+        Ok(Value::Arrays(res).into())
     }
 
-    fn discard(&mut self) -> Result<Value> {
+    fn discard(&mut self) -> Result<CommandResponse> {
         self.commands
             .take()
             .ok_or_else(|| anyhow!("ERR DISCARD without MULTI"))?;
 
         self.watchs.take();
-        Ok(Value::SimpleStrings("OK".into()))
+        Ok(Value::SimpleStrings("OK".into()).into())
     }
 
-    fn watch(&mut self, arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
+    fn watch(&mut self, arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<CommandResponse> {
         if self.is_started() {
             bail!("ERR WATCH inside MULTI is not allowed")
         }
@@ -106,12 +110,12 @@ impl Transaction {
             let version = db.get_version(&key).unwrap_or(0);
             watchs.insert(key, version);
         }
-        Ok(Value::SimpleStrings("OK".into()))
+        Ok(Value::SimpleStrings("OK".into()).into())
     }
 
-    fn unwatch(&mut self) -> Result<Value> {
+    fn unwatch(&mut self) -> Result<CommandResponse> {
         self.watchs.take();
-        Ok(Value::SimpleStrings("OK".into()))
+        Ok(Value::SimpleStrings("OK".into()).into())
     }
 
     fn check_dirty(ctx: &Arc<Context>, watchs: Option<HashMap<Bytes, u64>>) -> bool {

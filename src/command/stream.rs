@@ -1,12 +1,14 @@
-use crate::Context;
-use crate::Value;
+use crate::{CommandResponse, Context, Value};
 use anyhow::bail;
 use anyhow::{Ok, Result, anyhow};
 use bytes::Bytes;
 use std::sync::Arc;
 use std::vec::IntoIter;
 
-pub(super) fn execute_xadd(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
+pub(super) fn execute_xadd(
+    mut arg_iter: IntoIter<Value>,
+    ctx: &Arc<Context>,
+) -> Result<CommandResponse> {
     let stream_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("xadd command missing key!"))?
@@ -20,10 +22,13 @@ pub(super) fn execute_xadd(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) ->
         .collect::<Result<Vec<Bytes>>>()?;
     let db = ctx.db_ref();
     let id = db.xadd(stream_key, entry_id, args)?;
-    Ok(Value::BulkStrings(id))
+    Ok(Value::BulkStrings(id).into())
 }
 
-pub(super) fn execute_xrange(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
+pub(super) fn execute_xrange(
+    mut arg_iter: IntoIter<Value>,
+    ctx: &Arc<Context>,
+) -> Result<CommandResponse> {
     let stream_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("xrange command missing key!"))?
@@ -41,10 +46,13 @@ pub(super) fn execute_xrange(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) 
         Some(entrys) => entrys.into(),
         _ => Value::EmptyArrays,
     };
-    Ok(result)
+    Ok(result.into())
 }
 
-pub(super) fn execute_xread(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
+pub(super) fn execute_xread(
+    mut arg_iter: IntoIter<Value>,
+    ctx: &Arc<Context>,
+) -> Result<CommandResponse> {
     let Some(arg1) = arg_iter.next() else {
         bail!("xread format error")
     };
@@ -89,5 +97,5 @@ pub(super) fn execute_xread(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -
             }
         }
     };
-    Ok(result)
+    Ok(result.into())
 }

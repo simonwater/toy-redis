@@ -1,4 +1,4 @@
-use super::{Transaction, list, stream};
+use super::{CommandResponse, Transaction, list, stream};
 use crate::info::SectionType;
 use crate::{Context, Value, db};
 use anyhow::{Result, anyhow, bail};
@@ -30,9 +30,10 @@ pub enum ImmeCommand {
 }
 
 impl ImmeCommand {
-    pub fn execute(self, ctx: &Arc<Context>, trans: &mut Transaction) -> Result<Value> {
+    pub fn execute(self, ctx: &Arc<Context>, trans: &mut Transaction) -> Result<CommandResponse> {
         if trans.is_started() {
-            return trans.add_command(self); // 延迟统一处理
+            let res = trans.add_command(self)?; // 延迟统一处理
+            return Ok(res);
         }
 
         match self {
@@ -60,19 +61,19 @@ impl ImmeCommand {
     }
 }
 
-fn execute_ping(mut _arg_iter: IntoIter<Value>, _ctx: &Arc<Context>) -> Result<Value> {
-    Ok(Value::SimpleStrings("PONG".into()))
+fn execute_ping(mut _arg_iter: IntoIter<Value>, _ctx: &Arc<Context>) -> Result<CommandResponse> {
+    Ok(Value::SimpleStrings("PONG".into()).into())
 }
 
-fn execute_echo(mut arg_iter: IntoIter<Value>, _ctx: &Arc<Context>) -> Result<Value> {
+fn execute_echo(mut arg_iter: IntoIter<Value>, _ctx: &Arc<Context>) -> Result<CommandResponse> {
     let arg = arg_iter.next();
     if arg.is_none() {
         bail!("echo command missing argument!")
     }
-    return Ok(arg.unwrap().clone());
+    return Ok(arg.unwrap().clone().into());
 }
 
-fn execute_set(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
+fn execute_set(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<CommandResponse> {
     let key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("set command missing key!"))?
@@ -95,10 +96,10 @@ fn execute_set(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Valu
     }
 
     db.set_with_ttl(key, val, ttl_ms);
-    return Ok(Value::SimpleStrings("OK".into()));
+    return Ok(Value::SimpleStrings("OK".into()).into());
 }
 
-fn execute_get(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
+fn execute_get(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<CommandResponse> {
     let key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("get command missing key!"))?
@@ -107,45 +108,48 @@ fn execute_get(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Valu
     let db = ctx.db_ref();
     let value = db.get(&key)?;
     if let Some(bytes) = value {
-        return Ok(Value::BulkStrings(bytes));
+        return Ok(Value::BulkStrings(bytes).into());
     }
-    return Ok(Value::NullBulkStrings);
+    return Ok(Value::NullBulkStrings.into());
 }
 
-fn execute_type(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
+fn execute_type(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<CommandResponse> {
     let key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("type command missing key!"))?
         .into_bulk_bytes()?;
     let db = ctx.db_ref();
     let t = db.obj_type(&key);
-    Ok(Value::SimpleStrings(t))
+    Ok(Value::SimpleStrings(t).into())
 }
 
-fn execute_incr(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
+fn execute_incr(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<CommandResponse> {
     let key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("ERR Incr command missing key"))?
         .into_bulk_bytes()?;
     let db = ctx.db_ref();
     let result = db.incr(key)?;
-    Ok(Value::Integer(result))
+    Ok(Value::Integer(result).into())
 }
 
-fn execute_info(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
+fn execute_info(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<CommandResponse> {
     let section = arg_iter.next().map(|v| v.into_string()).transpose()?;
     let sec_type = SectionType::new(section);
     let mut out = String::with_capacity(64);
     ctx.info_ref().output(sec_type, &mut out);
-    Ok(Value::BulkStrings(Bytes::from(out)))
+    Ok(Value::BulkStrings(Bytes::from(out)).into())
 }
 
-fn execute_replconf(mut _arg_iter: IntoIter<Value>, _ctx: &Arc<Context>) -> Result<Value> {
-    Ok(Value::SimpleStrings("OK".into()))
+fn execute_replconf(
+    mut _arg_iter: IntoIter<Value>,
+    _ctx: &Arc<Context>,
+) -> Result<CommandResponse> {
+    Ok(Value::SimpleStrings("OK".into()).into())
 }
 
-fn execute_psync(mut _arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Value> {
+fn execute_psync(mut _arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<CommandResponse> {
     let master_id = ctx.info_ref().get_master_replid();
     let s = format!("FULLRESYNC {} 0", master_id);
-    Ok(Value::SimpleStrings(s))
+    Ok(Value::SimpleStrings(s).into())
 }

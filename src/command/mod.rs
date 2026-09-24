@@ -1,8 +1,10 @@
 mod imme_command;
 mod list;
+mod response;
 mod stream;
 mod trans;
 
+pub use response::CommandResponse;
 pub use trans::Transaction;
 
 use crate::Context;
@@ -61,7 +63,7 @@ impl Command {
         }
     }
 
-    pub fn execute(self, ctx: &Arc<Context>, trans: &mut Transaction) -> Result<Value> {
+    pub fn execute(self, ctx: &Arc<Context>, trans: &mut Transaction) -> Result<CommandResponse> {
         match self {
             Self::ImmeCommand(imme_cmd) => imme_cmd.execute(ctx, trans),
             Self::TransCommand(trans_cmd) => trans_cmd.execute(ctx, trans),

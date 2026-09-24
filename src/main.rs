@@ -74,25 +74,29 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
     Ok(())
 }
 
-fn handle_connection(conn: &mut ConnectionHandler, db: Arc<Context>) -> Result<()> {
+fn handle_connection(conn: &mut ConnectionHandler, ctx: Arc<Context>) -> Result<()> {
     let mut trans = Transaction::new();
     while let Some(input) = conn.receive_value()? {
-        let output = match handle_command(input, &db, &mut trans) {
-            Ok(output) => output,
-            Err(e) => Value::SimpleErrors(format!("{}", e)),
+        if let Err(e) = handle_command(input, conn, &ctx, &mut trans) {
+            let res = Value::SimpleErrors(format!("{}", e));
+            conn.write_all(&res.to_bytes())?;
         };
-
-        conn.write_all(&output.to_bytes())?;
     }
     Ok(())
 }
 
-fn handle_command(input: Value, ctx: &Arc<Context>, trans: &mut Transaction) -> Result<Value> {
+fn handle_command(
+    input: Value,
+    conn: &mut ConnectionHandler,
+    ctx: &Arc<Context>,
+    trans: &mut Transaction,
+) -> Result<()> {
     let Value::Arrays(values) = input else {
         bail!("input format error!")
     };
 
     let cmd = Command::new(values)?;
-    let res = cmd.execute(ctx, trans)?;
-    Ok(res)
+    let output = cmd.execute(ctx, trans)?;
+    output.run(conn)?;
+    Ok(())
 }
