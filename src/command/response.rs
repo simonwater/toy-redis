@@ -1,4 +1,5 @@
 use anyhow::Result;
+use bytes::Bytes;
 use std::io::Read;
 
 use crate::{ConnectionHandler, Value};
@@ -29,5 +30,48 @@ impl CommandResponse {
 impl From<Value> for CommandResponse {
     fn from(value: Value) -> Self {
         Self::RespValue(value)
+    }
+}
+
+impl From<i64> for CommandResponse {
+    fn from(value: i64) -> Self {
+        Self::RespValue(value.into())
+    }
+}
+
+impl From<f64> for CommandResponse {
+    fn from(value: f64) -> Self {
+        Self::RespValue(value.into())
+    }
+}
+
+impl From<String> for CommandResponse {
+    fn from(value: String) -> Self {
+        Self::RespValue(value.into())
+    }
+}
+
+impl From<&str> for CommandResponse {
+    fn from(value: &str) -> Self {
+        Self::RespValue(value.into())
+    }
+}
+
+impl From<Bytes> for CommandResponse {
+    fn from(value: Bytes) -> Self {
+        Self::RespValue(value.into())
+    }
+}
+
+impl From<Vec<Value>> for CommandResponse {
+    fn from(value: Vec<Value>) -> Self {
+        Self::RespValue(value.into())
+    }
+}
+
+impl From<Vec<Bytes>> for CommandResponse {
+    fn from(bytes_vec: Vec<Bytes>) -> Self {
+        let frames: Vec<Value> = bytes_vec.into_iter().map(Value::BulkStrings).collect();
+        frames.into()
     }
 }

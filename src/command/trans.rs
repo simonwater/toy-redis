@@ -50,7 +50,7 @@ impl Transaction {
             .as_mut()
             .ok_or_else(|| anyhow!("ERR Transaction is not started, can not add command."))?;
         commands.push(cmd);
-        Ok(Value::SimpleStrings("QUEUED".into()).into())
+        Ok("QUEUED".into())
     }
 
     pub(super) fn start(&mut self) -> Result<CommandResponse> {
@@ -58,7 +58,7 @@ impl Transaction {
             self.commands = Some(Vec::with_capacity(16));
         }
 
-        Ok(Value::SimpleStrings("OK".into()).into())
+        Ok("OK".into())
     }
 
     fn exec(&mut self, ctx: &Arc<Context>) -> Result<CommandResponse> {
@@ -84,7 +84,7 @@ impl Transaction {
             res.push(cmd_res);
         }
 
-        Ok(Value::Arrays(res).into())
+        Ok(res.into())
     }
 
     fn discard(&mut self) -> Result<CommandResponse> {
@@ -93,7 +93,7 @@ impl Transaction {
             .ok_or_else(|| anyhow!("ERR DISCARD without MULTI"))?;
 
         self.watchs.take();
-        Ok(Value::SimpleStrings("OK".into()).into())
+        Ok("OK".into())
     }
 
     fn watch(&mut self, arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<CommandResponse> {
@@ -110,12 +110,12 @@ impl Transaction {
             let version = db.get_version(&key).unwrap_or(0);
             watchs.insert(key, version);
         }
-        Ok(Value::SimpleStrings("OK".into()).into())
+        Ok("OK".into())
     }
 
     fn unwatch(&mut self) -> Result<CommandResponse> {
         self.watchs.take();
-        Ok(Value::SimpleStrings("OK".into()).into())
+        Ok("OK".into())
     }
 
     fn check_dirty(ctx: &Arc<Context>, watchs: Option<HashMap<Bytes, u64>>) -> bool {

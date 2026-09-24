@@ -22,7 +22,7 @@ pub(super) fn execute_xadd(
         .collect::<Result<Vec<Bytes>>>()?;
     let db = ctx.db_ref();
     let id = db.xadd(stream_key, entry_id, args)?;
-    Ok(Value::BulkStrings(id).into())
+    Ok(id.into())
 }
 
 pub(super) fn execute_xrange(

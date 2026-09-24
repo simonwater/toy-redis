@@ -18,7 +18,7 @@ pub(super) fn execute_rpush(
 
     let db = ctx.db_ref();
     let len = db.rpush(list_key, args)?;
-    Ok(Value::Integer(len).into())
+    Ok(len.into())
 }
 
 pub(super) fn execute_lpush(
@@ -35,7 +35,7 @@ pub(super) fn execute_lpush(
 
     let db = ctx.db_ref();
     let len = db.lpush(list_key, args)?;
-    Ok(Value::Integer(len).into())
+    Ok(len.into())
 }
 
 pub(super) fn execute_lrange(
@@ -74,7 +74,7 @@ pub(super) fn execute_llen(
 
     let db = ctx.db_ref();
     let len = db.llen(list_key)?;
-    Ok(Value::Integer(len).into())
+    Ok(len.into())
 }
 
 pub(super) fn execute_lpop(
@@ -94,7 +94,7 @@ pub(super) fn execute_lpop(
     let value = match db.lpop(list_key, cnt)? {
         Some(bytes_vec) => {
             if cnt == 1 {
-                Value::BulkStrings(bytes_vec[0].clone())
+                bytes_vec[0].clone().into()
             } else {
                 bytes_vec.into()
             }

@@ -299,10 +299,46 @@ impl Parser {
     }
 }
 
+impl From<i64> for Value {
+    fn from(value: i64) -> Self {
+        Self::Integer(value)
+    }
+}
+
+impl From<f64> for Value {
+    fn from(value: f64) -> Self {
+        Self::Double(value)
+    }
+}
+
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Self::SimpleStrings(value)
+    }
+}
+
+impl From<&str> for Value {
+    fn from(value: &str) -> Self {
+        Self::SimpleStrings(value.into())
+    }
+}
+
+impl From<Bytes> for Value {
+    fn from(value: Bytes) -> Self {
+        Self::BulkStrings(value)
+    }
+}
+
+impl From<Vec<Value>> for Value {
+    fn from(value: Vec<Value>) -> Self {
+        Self::Arrays(value)
+    }
+}
+
 impl From<Vec<Bytes>> for Value {
     fn from(bytes_vec: Vec<Bytes>) -> Self {
         let frames: Vec<Value> = bytes_vec.into_iter().map(Value::BulkStrings).collect();
-        Value::Arrays(frames)
+        frames.into()
     }
 }
 

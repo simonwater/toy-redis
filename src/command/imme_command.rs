@@ -62,7 +62,7 @@ impl ImmeCommand {
 }
 
 fn execute_ping(mut _arg_iter: IntoIter<Value>, _ctx: &Arc<Context>) -> Result<CommandResponse> {
-    Ok(Value::SimpleStrings("PONG".into()).into())
+    Ok("PONG".into())
 }
 
 fn execute_echo(mut arg_iter: IntoIter<Value>, _ctx: &Arc<Context>) -> Result<CommandResponse> {
@@ -96,7 +96,7 @@ fn execute_set(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Comm
     }
 
     db.set_with_ttl(key, val, ttl_ms);
-    return Ok(Value::SimpleStrings("OK".into()).into());
+    return Ok("OK".into());
 }
 
 fn execute_get(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<CommandResponse> {
@@ -120,7 +120,7 @@ fn execute_type(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Com
         .into_bulk_bytes()?;
     let db = ctx.db_ref();
     let t = db.obj_type(&key);
-    Ok(Value::SimpleStrings(t).into())
+    Ok(t.into())
 }
 
 fn execute_incr(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<CommandResponse> {
@@ -130,7 +130,7 @@ fn execute_incr(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Com
         .into_bulk_bytes()?;
     let db = ctx.db_ref();
     let result = db.incr(key)?;
-    Ok(Value::Integer(result).into())
+    Ok(result.into())
 }
 
 fn execute_info(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<CommandResponse> {
@@ -138,18 +138,18 @@ fn execute_info(mut arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<Com
     let sec_type = SectionType::new(section);
     let mut out = String::with_capacity(64);
     ctx.info_ref().output(sec_type, &mut out);
-    Ok(Value::BulkStrings(Bytes::from(out)).into())
+    Ok(Bytes::from(out).into())
 }
 
 fn execute_replconf(
     mut _arg_iter: IntoIter<Value>,
     _ctx: &Arc<Context>,
 ) -> Result<CommandResponse> {
-    Ok(Value::SimpleStrings("OK".into()).into())
+    Ok("OK".into())
 }
 
 fn execute_psync(mut _arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<CommandResponse> {
     let master_id = ctx.info_ref().get_master_replid();
     let s = format!("FULLRESYNC {} 0", master_id);
-    Ok(Value::SimpleStrings(s).into())
+    Ok(s.into())
 }
