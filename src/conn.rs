@@ -48,4 +48,8 @@ impl ConnectionHandler {
         self.stream.write_all(&req.to_bytes())?;
         self.receive_value()
     }
+
+    pub fn get_stream(&mut self) -> &mut TcpStream {
+        &mut self.stream
+    }
 }

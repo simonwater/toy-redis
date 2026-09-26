@@ -19,8 +19,15 @@ impl CommandResponse {
             Self::RespValue(value) => {
                 conn.write_all(&value.to_bytes())?;
             }
-            Self::Stream { init_value, .. } => {
+            Self::Stream {
+                init_value,
+                mut stream,
+                len,
+            } => {
                 conn.write_all(&init_value.to_bytes())?;
+                let head = format!("${}\r\n", len);
+                conn.write_all(head.as_bytes())?;
+                std::io::copy(&mut stream, conn.get_stream())?;
             }
         };
         Ok(())
