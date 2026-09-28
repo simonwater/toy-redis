@@ -34,6 +34,35 @@ fn main() {
     }
 }
 
+fn handle_connection(conn: &mut ConnectionHandler, ctx: Arc<Context>) -> Result<()> {
+    let mut trans = Transaction::new();
+    while let Some(input) = conn.receive_value()? {
+        if let Err(e) = handle_command(input, conn, &ctx, &mut trans) {
+            let res = Value::SimpleErrors(format!("{}", e));
+            conn.write_all(&res.to_bytes())?;
+        };
+    }
+    Ok(())
+}
+
+fn handle_command(
+    input: Value,
+    conn: &mut ConnectionHandler,
+    ctx: &Arc<Context>,
+    trans: &mut Transaction,
+) -> Result<()> {
+    let Value::Arrays(values) = input else {
+        bail!("input command must be resp array.")
+    };
+
+    let cmd = Command::new(values)?;
+    let output = cmd.execute(ctx, trans)?;
+    output.run(conn)?;
+    Ok(())
+}
+
+/* replacation */
+
 fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
     // 从库
     let args = ctx.args_ref();
@@ -69,34 +98,36 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
             Value::BulkStrings("?".into()),
             Value::BulkStrings("-1".into()),
         ];
-        let _value = conn.send(Value::Arrays(cmd))?;
+        let _init_value = conn.send(Value::Arrays(cmd))?;
+        let _rdb_stream = conn.receive_value()?;
+        let ctx = ctx.clone();
+        thread::spawn(move || {
+            let mut trans = Transaction::new();
+            // 增量命令
+            loop {
+                if let Err(err) = handle_repl_command(&mut conn, &ctx, &mut trans) {
+                    eprint!("Replica synchronization: {}", err);
+                    return;
+                }
+            }
+        });
     }
     Ok(())
 }
 
-fn handle_connection(conn: &mut ConnectionHandler, ctx: Arc<Context>) -> Result<()> {
-    let mut trans = Transaction::new();
-    while let Some(input) = conn.receive_value()? {
-        if let Err(e) = handle_command(input, conn, &ctx, &mut trans) {
-            let res = Value::SimpleErrors(format!("{}", e));
-            conn.write_all(&res.to_bytes())?;
-        };
-    }
-    Ok(())
-}
-
-fn handle_command(
-    input: Value,
+fn handle_repl_command(
     conn: &mut ConnectionHandler,
     ctx: &Arc<Context>,
     trans: &mut Transaction,
 ) -> Result<()> {
-    let Value::Arrays(values) = input else {
-        bail!("input format error!")
-    };
-
-    let cmd = Command::new(values)?;
-    let output = cmd.execute(ctx, trans)?;
-    output.run(conn)?;
-    Ok(())
+    if let Some(input) = conn.receive_value()? {
+        let Value::Arrays(values) = input else {
+            bail!("input must be resp array.")
+        };
+        let cmd = Command::new(values)?;
+        let _out = cmd.execute(ctx, trans)?;
+        Ok(())
+    } else {
+        bail!("connection is lost.")
+    }
 }
