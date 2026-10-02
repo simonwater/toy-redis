@@ -41,12 +41,17 @@ impl ConnectionHandler {
         Ok(())
     }
 
-    pub fn send(&mut self, mut req: Value) -> Result<Option<Value>> {
+    pub fn request(&mut self, req: Value) -> Result<Option<Value>> {
+        self.send(req)?;
+        self.receive_value()
+    }
+
+    pub fn send(&mut self, mut req: Value) -> Result<()> {
         if !matches!(req, Value::Arrays(_)) {
             req = Value::Arrays(vec![req]);
         }
         self.stream.write_all(&req.to_bytes())?;
-        self.receive_value()
+        Ok(())
     }
 
     pub fn get_stream(&mut self) -> &mut TcpStream {

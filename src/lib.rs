@@ -3,11 +3,13 @@ mod conn;
 mod context;
 pub mod db;
 mod info;
+mod repl_hub;
 mod resp;
 
-pub use command::{Command, CommandResponse, Transaction};
+pub use command::{Command, CommandResponse, ConnectionState, Transaction};
 pub use conn::ConnectionHandler;
 pub use context::{Args, Context};
 pub use db::MemoryDB;
 pub use info::Information;
+pub use repl_hub::ReplHub;
 pub use resp::Value;

@@ -155,7 +155,7 @@ fn execute_psync(mut _arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<C
     let s: String = format!("FULLRESYNC {} 0", master_id);
     let stream = empty_rdb();
     let len = stream.len();
-    let response = CommandResponse::Stream {
+    let response = CommandResponse::Replication {
         init_value: s.into(),
         stream: Box::new(Cursor::new(stream)),
         len,

@@ -3,7 +3,9 @@ use bytes::Bytes;
 use std::net::TcpListener;
 use std::sync::Arc;
 use std::thread;
-use toy_redis::{Command, ConnectionHandler, Context, Transaction, Value};
+use toy_redis::{
+    Command, CommandResponse, ConnectionHandler, ConnectionState, Context, Transaction, Value,
+};
 
 fn main() {
     let ctx_arc = Arc::new(Context::new());
@@ -19,46 +21,49 @@ fn main() {
         match stream {
             Ok(stream) => {
                 thread::spawn(move || {
-                    let mut connection = ConnectionHandler::from_tcp_stream(stream);
-                    if let Err(e) = handle_connection(&mut connection, ctx) {
-                        let res = Value::SimpleErrors(format!("{}", e));
-                        println!("err: {:?}", res);
-                        connection.write_all(&res.to_bytes()).unwrap();
+                    let connection = ConnectionHandler::from_tcp_stream(stream);
+                    if let Err(e) = handle_connection(connection, ctx) {
+                        eprintln!("err: {:?}", e);
                     }
                 });
             }
             Err(e) => {
-                eprintln!("error: {}", e);
+                eprintln!("err: {}", e);
             }
         }
     }
 }
 
-fn handle_connection(conn: &mut ConnectionHandler, ctx: Arc<Context>) -> Result<()> {
+fn handle_connection(mut conn: ConnectionHandler, ctx: Arc<Context>) -> Result<()> {
     let mut trans = Transaction::new();
+    // 读取命令
     while let Some(input) = conn.receive_value()? {
-        if let Err(e) = handle_command(input, conn, &ctx, &mut trans) {
-            let res = Value::SimpleErrors(format!("{}", e));
-            conn.write_all(&res.to_bytes())?;
-        };
+        // 执行命令
+        let response = handle_command(input, &ctx, &mut trans);
+        // 回写响应
+        match response.run(conn, &ctx)? {
+            ConnectionState::KeepAlive(keep_conn) => conn = keep_conn,
+            ConnectionState::TakenOver => break,
+        }
     }
     Ok(())
 }
 
-fn handle_command(
-    input: Value,
-    conn: &mut ConnectionHandler,
-    ctx: &Arc<Context>,
-    trans: &mut Transaction,
-) -> Result<()> {
+fn handle_command(input: Value, ctx: &Arc<Context>, trans: &mut Transaction) -> CommandResponse {
     let Value::Arrays(values) = input else {
-        bail!("input command must be resp array.")
+        return Value::SimpleErrors("input command must be resp array.".into()).into();
     };
 
-    let cmd = Command::new(values)?;
-    let output = cmd.execute(ctx, trans)?;
-    output.run(conn)?;
-    Ok(())
+    let cmd = match Command::new(values) {
+        Ok(cmd) => cmd,
+        Err(e) => return Value::SimpleErrors(format!("{}", e)).into(),
+    };
+    let response = match cmd.execute(ctx, trans) {
+        Ok(response) => response,
+        Err(e) => Value::SimpleErrors(format!("{}", e)).into(),
+    };
+
+    response
 }
 
 /* replacation */
@@ -71,7 +76,7 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
 
         // ping
         let cmd = Value::BulkStrings("PING".into());
-        let value = conn.send(cmd)?.unwrap();
+        let value = conn.request(cmd)?.unwrap();
         assert_eq!(value, Value::SimpleStrings("PONG".into()));
 
         // replconf 1
@@ -80,7 +85,7 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
             Value::BulkStrings("listening-port".into()),
             Value::BulkStrings(Bytes::from(args.port.clone())),
         ];
-        let value = conn.send(Value::Arrays(cmd))?.unwrap();
+        let value = conn.request(Value::Arrays(cmd))?.unwrap();
         assert_eq!(value, Value::SimpleStrings("OK".into()));
 
         // replconf 2
@@ -89,7 +94,7 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
             Value::BulkStrings("capa".into()),
             Value::BulkStrings("psync2".into()),
         ];
-        let value = conn.send(Value::Arrays(cmd))?.unwrap();
+        let value = conn.request(Value::Arrays(cmd))?.unwrap();
         assert_eq!(value, Value::SimpleStrings("OK".into()));
 
         // psync

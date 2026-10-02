@@ -1,4 +1,4 @@
-use crate::{Information, MemoryDB};
+use crate::{Information, MemoryDB, ReplHub};
 use clap::Parser;
 
 #[derive(Parser, Debug, Clone)]
@@ -13,16 +13,19 @@ pub struct Context {
     db: MemoryDB,
     args: Args,
     info: Information,
+    repl_hub: ReplHub,
 }
 
 impl Context {
     pub fn new() -> Self {
         let args = Args::parse();
         let info = Information::new(&args);
+        let repl_hub = ReplHub::new();
         Self {
             db: MemoryDB::new(),
             args,
             info,
+            repl_hub,
         }
     }
 
@@ -36,5 +39,9 @@ impl Context {
 
     pub fn info_ref(&self) -> &Information {
         &self.info
+    }
+
+    pub fn repl_hub(&self) -> &ReplHub {
+        &self.repl_hub
     }
 }

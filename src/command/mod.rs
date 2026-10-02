@@ -4,7 +4,7 @@ mod response;
 mod stream;
 mod trans;
 
-pub use response::CommandResponse;
+pub use response::{CommandResponse, ConnectionState};
 pub use trans::Transaction;
 
 use crate::Context;
