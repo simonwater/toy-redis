@@ -25,7 +25,7 @@ impl ReplHub {
                 match receiver.recv() {
                     Ok(msg) => {
                         if let Err(e) = conn.send(msg) {
-                            eprintln!("repla connection error when sync command: {}", e);
+                            eprintln!("error when send command to the repla: {}", e);
                             break;
                         }
                     }
