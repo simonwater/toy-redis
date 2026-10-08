@@ -69,7 +69,7 @@ fn handle_command(input: Value, ctx: &Arc<Context>, trans: &mut Transaction) -> 
 /* replacation */
 
 fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
-    // 从库
+    // 从库方式启动
     let args = ctx.args_ref();
     if let Some(addr) = args.replicaof.as_deref() {
         let mut conn = ConnectionHandler::new(addr.replace(" ", ":"))?;

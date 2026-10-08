@@ -3,6 +3,7 @@ mod conn;
 mod context;
 pub mod db;
 mod info;
+mod middleware;
 mod repl_hub;
 mod resp;
 
