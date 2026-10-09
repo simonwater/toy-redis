@@ -1,4 +1,8 @@
-use super::{Command, Transaction, basic, list, response::CommandResponse, stream};
+mod basic;
+mod list;
+mod stream;
+
+use super::{Command, Transaction, response::CommandResponse};
 use crate::Context;
 use anyhow::{Result, bail};
 use std::sync::Arc;
