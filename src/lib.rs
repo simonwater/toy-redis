@@ -7,7 +7,9 @@ mod middleware;
 mod repl_hub;
 mod resp;
 
-pub use command::{Command, CommandResponse, ConnectionState, Transaction};
+pub use command::{
+    Command, CommandResponse, ConnectionState, Transaction, executor as CmdExecutor,
+};
 pub use conn::ConnectionHandler;
 pub use context::{Args, Context};
 pub use db::MemoryDB;

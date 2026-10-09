@@ -1,34 +1,13 @@
-use crate::command::imme_command::ImmeCommand;
-use crate::{CommandResponse, Context, Value};
+use super::executor as CmdExecutor;
+use crate::{Command, CommandResponse, Context, Value};
 use anyhow::bail;
 use anyhow::{Result, anyhow};
 use bytes::Bytes;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::vec::IntoIter;
-
-pub enum TransCommand {
-    Watch(IntoIter<Value>),
-    Unwatch,
-    Multi,
-    Exec,
-    Discard,
-}
-
-impl TransCommand {
-    pub fn execute(self, ctx: &Arc<Context>, trans: &mut Transaction) -> Result<CommandResponse> {
-        match self {
-            Self::Multi => trans.start(),
-            Self::Exec => trans.exec(ctx),
-            Self::Discard => trans.discard(),
-            Self::Watch(args) => trans.watch(args, ctx),
-            Self::Unwatch => trans.unwatch(),
-        }
-    }
-}
 
 pub struct Transaction {
-    commands: Option<Vec<ImmeCommand>>,
+    commands: Option<Vec<Command>>,
     watchs: Option<HashMap<Bytes, u64>>,
 }
 
@@ -44,7 +23,7 @@ impl Transaction {
         self.commands.is_some()
     }
 
-    pub(super) fn add_command(&mut self, cmd: ImmeCommand) -> Result<CommandResponse> {
+    pub(super) fn add_command(&mut self, cmd: Command) -> Result<CommandResponse> {
         let commands = self
             .commands
             .as_mut()
@@ -61,7 +40,7 @@ impl Transaction {
         Ok("OK".into())
     }
 
-    fn exec(&mut self, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    pub(super) fn exec(&mut self, ctx: &Arc<Context>) -> Result<CommandResponse> {
         let commands = self
             .commands
             .take()
@@ -72,7 +51,7 @@ impl Transaction {
             return Ok(Value::NullArrays.into());
         }
         for cmd in commands.into_iter() {
-            let cmd_res = match cmd.execute(ctx, self) {
+            let cmd_res = match CmdExecutor::execute_basic(&cmd, ctx) {
                 Ok(response) => match response {
                     CommandResponse::RespValue(value) => value,
                     _ => {
@@ -87,7 +66,7 @@ impl Transaction {
         Ok(res.into())
     }
 
-    fn discard(&mut self) -> Result<CommandResponse> {
+    pub(super) fn discard(&mut self) -> Result<CommandResponse> {
         self.commands
             .take()
             .ok_or_else(|| anyhow!("ERR DISCARD without MULTI"))?;
@@ -96,7 +75,7 @@ impl Transaction {
         Ok("OK".into())
     }
 
-    fn watch(&mut self, arg_iter: IntoIter<Value>, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    pub(super) fn watch(&mut self, cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
         if self.is_started() {
             bail!("ERR WATCH inside MULTI is not allowed")
         }
@@ -105,15 +84,15 @@ impl Transaction {
             .watchs
             .get_or_insert_with(|| HashMap::with_capacity(16));
         let db = ctx.db_ref();
-        for key in arg_iter {
-            let key = key.into_bulk_bytes()?;
+        for key in &cmd.args {
+            let key = key.to_bulk_bytes()?;
             let version = db.get_version(&key).unwrap_or(0);
             watchs.insert(key, version);
         }
         Ok("OK".into())
     }
 
-    fn unwatch(&mut self) -> Result<CommandResponse> {
+    pub(super) fn unwatch(&mut self) -> Result<CommandResponse> {
         self.watchs.take();
         Ok("OK".into())
     }

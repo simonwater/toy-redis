@@ -84,16 +84,16 @@ impl Value {
         )
     }
 
-    pub fn into_bulk_bytes(self) -> Result<Bytes> {
+    pub fn to_bulk_bytes(&self) -> Result<Bytes> {
         match self {
-            Value::BulkStrings(s) => Ok(s),
+            Value::BulkStrings(s) => Ok(s.clone()),
             _ => bail!("resp type error, expected type is bulk strings"),
         }
     }
 
-    pub fn into_string(self) -> Result<String> {
+    pub fn to_string(&self) -> Result<String> {
         match self {
-            Value::SimpleStrings(s) | Value::SimpleErrors(s) => Ok(s),
+            Value::SimpleStrings(s) | Value::SimpleErrors(s) => Ok(s.to_owned()),
             Value::BulkStrings(s) => Ok(String::from_utf8(s.to_vec())?),
             Value::NullBulkStrings => Ok("$-1\r\n".into()),
             Value::Integer(val) => Ok(val.to_string()),
@@ -101,9 +101,9 @@ impl Value {
         }
     }
 
-    pub fn into_integer(self) -> Result<i64> {
+    pub fn to_integer(&self) -> Result<i64> {
         match self {
-            Value::Integer(val) => Ok(val),
+            Value::Integer(val) => Ok(*val),
             Value::SimpleStrings(s) => Ok(s.parse::<i64>()?),
             Value::BulkStrings(s) => {
                 let s = String::from_utf8(s.to_vec())?;
@@ -113,10 +113,10 @@ impl Value {
         }
     }
 
-    pub fn into_double(self) -> Result<f64> {
+    pub fn to_double(&self) -> Result<f64> {
         match self {
-            Value::Double(val) => Ok(val),
-            Value::Integer(val) => Ok(val as f64),
+            Value::Double(val) => Ok(*val),
+            Value::Integer(val) => Ok(*val as f64),
             Value::SimpleStrings(s) => Ok(s.parse::<f64>()?),
             Value::BulkStrings(s) => {
                 let s = String::from_utf8(s.to_vec())?;

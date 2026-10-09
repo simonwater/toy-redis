@@ -1,4 +1,4 @@
-use crate::{Command, CommandResponse, Context, Transaction, Value};
+use crate::{CmdExecutor, Command, CommandResponse, Context, Transaction, Value};
 use std::sync::Arc;
 
 pub trait Middleware {
@@ -49,13 +49,12 @@ impl CommandPipeline {
                 self.execute_at(cmd, index + 1, ctx, trans)
             })
         } else {
-            // let response = match cmd.execute(ctx, trans) {
-            //     Ok(response) => response,
-            //     Err(e) => Value::SimpleErrors(format!("{}", e)).into(),
-            // };
+            let response = match CmdExecutor::execute(cmd, ctx, trans) {
+                Ok(response) => response,
+                Err(e) => Value::SimpleErrors(format!("{}", e)).into(),
+            };
 
-            //response
-            "todo".into()
+            response
         }
     }
 }

@@ -4,7 +4,8 @@ use std::net::TcpListener;
 use std::sync::Arc;
 use std::thread;
 use toy_redis::{
-    Command, CommandResponse, ConnectionHandler, ConnectionState, Context, Transaction, Value,
+    CmdExecutor, Command, CommandResponse, ConnectionHandler, ConnectionState, Context,
+    Transaction, Value,
 };
 
 fn main() {
@@ -58,7 +59,7 @@ fn handle_command(input: Value, ctx: &Arc<Context>, trans: &mut Transaction) -> 
         Ok(cmd) => cmd,
         Err(e) => return Value::SimpleErrors(format!("{}", e)).into(),
     };
-    let response = match cmd.execute(ctx, trans) {
+    let response = match CmdExecutor::execute(&cmd, ctx, trans) {
         Ok(response) => response,
         Err(e) => Value::SimpleErrors(format!("{}", e)).into(),
     };
@@ -130,7 +131,7 @@ fn handle_repl_command(
             bail!("input must be resp array.")
         };
         let cmd = Command::new(values)?;
-        let _out = cmd.execute(ctx, trans)?;
+        let _out = CmdExecutor::execute(&cmd, ctx, trans)?;
         Ok(())
     } else {
         bail!("connection is lost.")

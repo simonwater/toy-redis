@@ -1,46 +1,41 @@
-use crate::{CommandResponse, Context, Value};
+use crate::{Command, CommandResponse, Context, Value};
 use anyhow::bail;
 use anyhow::{Ok, Result, anyhow};
 use bytes::Bytes;
 use std::sync::Arc;
-use std::vec::IntoIter;
 
-pub(super) fn execute_xadd(
-    mut arg_iter: IntoIter<Value>,
-    ctx: &Arc<Context>,
-) -> Result<CommandResponse> {
+pub(super) fn execute_xadd(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut arg_iter = cmd.args.iter();
     let stream_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("xadd command missing key!"))?
-        .into_bulk_bytes()?;
+        .to_bulk_bytes()?;
     let entry_id = arg_iter
         .next()
         .ok_or_else(|| anyhow!("xadd command missing entry id!"))?
-        .into_bulk_bytes()?;
+        .to_bulk_bytes()?;
     let args = arg_iter
-        .map(|v| v.into_bulk_bytes())
+        .map(|v| v.to_bulk_bytes())
         .collect::<Result<Vec<Bytes>>>()?;
     let db = ctx.db_ref();
     let id = db.xadd(stream_key, entry_id, args)?;
     Ok(id.into())
 }
 
-pub(super) fn execute_xrange(
-    mut arg_iter: IntoIter<Value>,
-    ctx: &Arc<Context>,
-) -> Result<CommandResponse> {
+pub(super) fn execute_xrange(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut arg_iter = cmd.args.iter();
     let stream_key = arg_iter
         .next()
         .ok_or_else(|| anyhow!("xrange command missing key!"))?
-        .into_bulk_bytes()?;
+        .to_bulk_bytes()?;
     let start = arg_iter
         .next()
         .ok_or_else(|| anyhow!("xrange command missing start entry id!"))?
-        .into_bulk_bytes()?;
+        .to_bulk_bytes()?;
     let end = arg_iter
         .next()
         .ok_or_else(|| anyhow!("xrange command missing end entry id!"))?
-        .into_bulk_bytes()?;
+        .to_bulk_bytes()?;
     let db = ctx.db_ref();
     let result = match db.xrange(stream_key, start, end)? {
         Some(entrys) => entrys.into(),
@@ -49,24 +44,22 @@ pub(super) fn execute_xrange(
     Ok(result.into())
 }
 
-pub(super) fn execute_xread(
-    mut arg_iter: IntoIter<Value>,
-    ctx: &Arc<Context>,
-) -> Result<CommandResponse> {
+pub(super) fn execute_xread(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut arg_iter = cmd.args.iter();
     let Some(arg1) = arg_iter.next() else {
         bail!("xread format error")
     };
     let mut timeout_in_milli: Option<i64> = None;
-    if &arg1.into_string()?.to_uppercase() == "BLOCK" {
+    if &arg1.to_string()?.to_uppercase() == "BLOCK" {
         let arg2 = arg_iter
             .next()
             .ok_or_else(|| anyhow!("xread command need timeout argument in block mode!"))?;
-        timeout_in_milli = Some(arg2.into_integer()?);
+        timeout_in_milli = Some(arg2.to_integer()?);
         arg_iter.next(); // streams
     }
 
     let args = arg_iter
-        .map(|v| v.into_bulk_bytes())
+        .map(|v| v.to_bulk_bytes())
         .collect::<Result<Vec<Bytes>>>()?;
     let args_len = args.len();
     let db = ctx.db_ref();
