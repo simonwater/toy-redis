@@ -23,7 +23,7 @@ impl Transaction {
         self.commands.is_some()
     }
 
-    pub(super) fn add_command(&mut self, cmd: Command) -> Result<CommandResponse> {
+    pub(crate) fn add_command(&mut self, cmd: Command) -> Result<CommandResponse> {
         let commands = self
             .commands
             .as_mut()
@@ -32,7 +32,7 @@ impl Transaction {
         Ok("QUEUED".into())
     }
 
-    pub(super) fn start(&mut self) -> Result<CommandResponse> {
+    pub(crate) fn start(&mut self) -> Result<CommandResponse> {
         if self.commands.is_none() {
             self.commands = Some(Vec::with_capacity(16));
         }
@@ -40,7 +40,7 @@ impl Transaction {
         Ok("OK".into())
     }
 
-    pub(super) fn exec(&mut self, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    pub(crate) fn exec(&mut self, ctx: &Arc<Context>) -> Result<CommandResponse> {
         let commands = self
             .commands
             .take()
@@ -51,7 +51,7 @@ impl Transaction {
             return Ok(Value::NullArrays.into());
         }
         for cmd in commands.into_iter() {
-            let cmd_res = match CmdExecutor::execute_basic(&cmd, ctx) {
+            let cmd_res = match CmdExecutor::execute(&cmd, ctx) {
                 Ok(response) => match response {
                     CommandResponse::RespValue(value) => value,
                     _ => {
@@ -66,7 +66,7 @@ impl Transaction {
         Ok(res.into())
     }
 
-    pub(super) fn discard(&mut self) -> Result<CommandResponse> {
+    pub(crate) fn discard(&mut self) -> Result<CommandResponse> {
         self.commands
             .take()
             .ok_or_else(|| anyhow!("ERR DISCARD without MULTI"))?;
@@ -75,7 +75,7 @@ impl Transaction {
         Ok("OK".into())
     }
 
-    pub(super) fn watch(&mut self, cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    pub(crate) fn watch(&mut self, cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
         if self.is_started() {
             bail!("ERR WATCH inside MULTI is not allowed")
         }
@@ -92,7 +92,7 @@ impl Transaction {
         Ok("OK".into())
     }
 
-    pub(super) fn unwatch(&mut self) -> Result<CommandResponse> {
+    pub(crate) fn unwatch(&mut self) -> Result<CommandResponse> {
         self.watchs.take();
         Ok("OK".into())
     }

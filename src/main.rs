@@ -4,8 +4,8 @@ use std::net::TcpListener;
 use std::sync::Arc;
 use std::thread;
 use toy_redis::{
-    CmdExecutor, Command, CommandResponse, ConnectionHandler, ConnectionState, Context,
-    Transaction, Value,
+    Command, CommandPipeline, CommandResponse, ConnectionHandler, ConnectionState, Context,
+    TransMiddleware, Transaction, Value,
 };
 
 fn main() {
@@ -40,7 +40,11 @@ fn handle_connection(mut conn: ConnectionHandler, ctx: Arc<Context>) -> Result<(
     // 读取命令
     while let Some(input) = conn.receive_value()? {
         // 执行命令
-        let response = handle_command(input, &ctx, &mut trans);
+        let response = match execute_command(input, &ctx, &mut trans) {
+            Ok(res) => res,
+            Err(e) => Value::SimpleErrors(format!("{}", e)).into(),
+        };
+
         // 回写响应
         match response.run(conn, &ctx)? {
             ConnectionState::KeepAlive(keep_conn) => conn = keep_conn,
@@ -50,21 +54,21 @@ fn handle_connection(mut conn: ConnectionHandler, ctx: Arc<Context>) -> Result<(
     Ok(())
 }
 
-fn handle_command(input: Value, ctx: &Arc<Context>, trans: &mut Transaction) -> CommandResponse {
+fn execute_command(
+    input: Value,
+    ctx: &Arc<Context>,
+    trans: &mut Transaction,
+) -> Result<CommandResponse> {
     let Value::Arrays(values) = input else {
-        return Value::SimpleErrors("input command must be resp array.".into()).into();
+        bail!("input command must be resp array.");
     };
 
-    let cmd = match Command::new(values) {
-        Ok(cmd) => cmd,
-        Err(e) => return Value::SimpleErrors(format!("{}", e)).into(),
-    };
-    let response = match CmdExecutor::execute(&cmd, ctx, trans) {
-        Ok(response) => response,
-        Err(e) => Value::SimpleErrors(format!("{}", e)).into(),
-    };
+    let cmd = Command::new(values)?;
+    let mut pipeline = CommandPipeline::new();
+    pipeline = pipeline.use_middleware(Box::new(TransMiddleware));
+    let response = pipeline.execute(&cmd, ctx, trans)?;
 
-    response
+    Ok(response)
 }
 
 /* replacation */
@@ -127,11 +131,7 @@ fn handle_repl_command(
     trans: &mut Transaction,
 ) -> Result<()> {
     if let Some(input) = conn.receive_value()? {
-        let Value::Arrays(values) = input else {
-            bail!("input must be resp array.")
-        };
-        let cmd = Command::new(values)?;
-        let _out = CmdExecutor::execute(&cmd, ctx, trans)?;
+        let _ = execute_command(input, ctx, trans)?;
         Ok(())
     } else {
         bail!("connection is lost.")

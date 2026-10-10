@@ -1,5 +1,10 @@
-use crate::{CmdExecutor, Command, CommandResponse, Context, Transaction, Value};
+mod trans;
+
+use crate::{CmdExecutor, Command, CommandResponse, Context, Transaction};
+use anyhow::Result;
 use std::sync::Arc;
+
+pub use trans::TransMiddleware;
 
 pub trait Middleware {
     fn handle(
@@ -7,8 +12,8 @@ pub trait Middleware {
         cmd: &Command,
         ctx: &Arc<Context>,
         trans: &mut Transaction,
-        next: &dyn Fn(&mut Transaction) -> CommandResponse,
-    ) -> CommandResponse;
+        next: &dyn Fn(&mut Transaction) -> Result<CommandResponse>,
+    ) -> Result<CommandResponse>;
 }
 
 pub struct CommandPipeline {
@@ -32,7 +37,7 @@ impl CommandPipeline {
         cmd: &Command,
         ctx: &Arc<Context>,
         trans: &mut Transaction,
-    ) -> CommandResponse {
+    ) -> Result<CommandResponse> {
         self.execute_at(cmd, 0, ctx, trans)
     }
 
@@ -42,19 +47,14 @@ impl CommandPipeline {
         index: usize,
         ctx: &Arc<Context>,
         trans: &mut Transaction,
-    ) -> CommandResponse {
+    ) -> Result<CommandResponse> {
         if index < self.middlewares.len() {
             let mw = &self.middlewares[index];
             mw.handle(cmd, ctx, trans, &|trans| {
                 self.execute_at(cmd, index + 1, ctx, trans)
             })
         } else {
-            let response = match CmdExecutor::execute(cmd, ctx, trans) {
-                Ok(response) => response,
-                Err(e) => Value::SimpleErrors(format!("{}", e)).into(),
-            };
-
-            response
+            CmdExecutor::execute(cmd, ctx)
         }
     }
 }

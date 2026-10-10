@@ -11,8 +11,8 @@ use anyhow::{Result, anyhow, bail};
 
 #[derive(Debug, Clone)]
 pub struct Command {
-    name: String,
-    args: Vec<Value>,
+    pub name: String,
+    pub args: Vec<Value>,
 }
 
 impl Command {

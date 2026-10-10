@@ -2,33 +2,12 @@ mod basic;
 mod list;
 mod stream;
 
-use super::{Command, Transaction, response::CommandResponse};
+use super::{Command, response::CommandResponse};
 use crate::Context;
 use anyhow::{Result, bail};
 use std::sync::Arc;
 
-pub fn execute(
-    cmd: &Command,
-    ctx: &Arc<Context>,
-    trans: &mut Transaction,
-) -> Result<CommandResponse> {
-    match cmd.name.as_str() {
-        "WATCH" => return trans.watch(cmd, ctx),
-        "UNWATCH" => return trans.unwatch(),
-        "MULTI" => return trans.start(),
-        "EXEC" => return trans.exec(ctx),
-        "DISCARD" => return trans.discard(),
-        _ => {}
-    };
-
-    if trans.is_started() {
-        let res = trans.add_command(cmd.clone())?; // 延迟统一处理
-        return Ok(res);
-    }
-    execute_basic(cmd, ctx)
-}
-
-pub(super) fn execute_basic(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+pub fn execute(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
     match cmd.name.as_str() {
         "PING" => basic::execute_ping(cmd, ctx),
         "ECHO" => basic::execute_echo(cmd, ctx),
