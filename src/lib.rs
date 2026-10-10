@@ -14,6 +14,6 @@ pub use conn::ConnectionHandler;
 pub use context::{Args, Context};
 pub use db::MemoryDB;
 pub use info::Information;
-pub use middleware::{CommandPipeline, Middleware, TransMiddleware};
+pub use middleware::{CommandPipeline, Middleware, ReplicaMiddleware, TransMiddleware};
 pub use repl_hub::ReplHub;
 pub use resp::Value;

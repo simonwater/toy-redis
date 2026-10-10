@@ -44,4 +44,8 @@ impl Context {
     pub fn repl_hub(&self) -> &ReplHub {
         &self.repl_hub
     }
+
+    pub fn is_master(&self) -> bool {
+        self.args_ref().replicaof.is_none()
+    }
 }

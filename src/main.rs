@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::thread;
 use toy_redis::{
     Command, CommandPipeline, CommandResponse, ConnectionHandler, ConnectionState, Context,
-    TransMiddleware, Transaction, Value,
+    ReplicaMiddleware, TransMiddleware, Transaction, Value,
 };
 
 fn main() {
@@ -38,9 +38,9 @@ fn main() {
 fn handle_connection(mut conn: ConnectionHandler, ctx: Arc<Context>) -> Result<()> {
     let mut trans = Transaction::new();
     // 读取命令
-    while let Some(input) = conn.receive_value()? {
+    while let Some((input, bytes)) = conn.receive_value()? {
         // 执行命令
-        let response = match execute_command(input, &ctx, &mut trans) {
+        let response = match execute_command(input, bytes, &ctx, &mut trans) {
             Ok(res) => res,
             Err(e) => Value::SimpleErrors(format!("{}", e)).into(),
         };
@@ -56,6 +56,7 @@ fn handle_connection(mut conn: ConnectionHandler, ctx: Arc<Context>) -> Result<(
 
 fn execute_command(
     input: Value,
+    bytes: Bytes,
     ctx: &Arc<Context>,
     trans: &mut Transaction,
 ) -> Result<CommandResponse> {
@@ -63,9 +64,11 @@ fn execute_command(
         bail!("input command must be resp array.");
     };
 
-    let cmd = Command::new(values)?;
+    let cmd = Command::new(values, bytes)?;
     let mut pipeline = CommandPipeline::new();
-    pipeline = pipeline.use_middleware(Box::new(TransMiddleware));
+    pipeline = pipeline
+        .use_middleware(Box::new(TransMiddleware))
+        .use_middleware(Box::new(ReplicaMiddleware));
     let response = pipeline.execute(&cmd, ctx, trans)?;
 
     Ok(response)
@@ -81,7 +84,7 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
 
         // ping
         let cmd = Value::BulkStrings("PING".into());
-        let value = conn.request(cmd)?.unwrap();
+        let (value, _) = conn.request(cmd)?.unwrap();
         assert_eq!(value, Value::SimpleStrings("PONG".into()));
 
         // replconf 1
@@ -90,7 +93,7 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
             Value::BulkStrings("listening-port".into()),
             Value::BulkStrings(Bytes::from(args.port.clone())),
         ];
-        let value = conn.request(Value::Arrays(cmd))?.unwrap();
+        let (value, _) = conn.request(Value::Arrays(cmd))?.unwrap();
         assert_eq!(value, Value::SimpleStrings("OK".into()));
 
         // replconf 2
@@ -99,7 +102,7 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
             Value::BulkStrings("capa".into()),
             Value::BulkStrings("psync2".into()),
         ];
-        let value = conn.request(Value::Arrays(cmd))?.unwrap();
+        let (value, _) = conn.request(Value::Arrays(cmd))?.unwrap();
         assert_eq!(value, Value::SimpleStrings("OK".into()));
 
         // psync
@@ -130,8 +133,8 @@ fn handle_repl_command(
     ctx: &Arc<Context>,
     trans: &mut Transaction,
 ) -> Result<()> {
-    if let Some(input) = conn.receive_value()? {
-        let _ = execute_command(input, ctx, trans)?;
+    if let Some((value, bytes)) = conn.receive_value()? {
+        let _ = execute_command(value, bytes, ctx, trans)?;
         Ok(())
     } else {
         bail!("connection is lost.")

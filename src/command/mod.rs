@@ -3,6 +3,7 @@ pub mod executor;
 mod response;
 mod trans;
 
+use bytes::Bytes;
 pub use response::{CommandResponse, ConnectionState};
 pub use trans::Transaction;
 
@@ -13,10 +14,11 @@ use anyhow::{Result, anyhow, bail};
 pub struct Command {
     pub name: String,
     pub args: Vec<Value>,
+    pub bytes: Bytes,
 }
 
 impl Command {
-    pub fn new(cmd_values: Vec<Value>) -> Result<Self> {
+    pub fn new(cmd_values: Vec<Value>, bytes: Bytes) -> Result<Self> {
         let mut iter: std::vec::IntoIter<Value> = cmd_values.into_iter();
         let cmd = iter.next().ok_or_else(|| anyhow!("missing command!"))?;
         let name = match cmd {
@@ -26,6 +28,7 @@ impl Command {
         Ok(Self {
             name,
             args: iter.collect(),
+            bytes,
         })
     }
 }

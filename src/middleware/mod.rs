@@ -1,9 +1,11 @@
+mod replica;
 mod trans;
 
 use crate::{CmdExecutor, Command, CommandResponse, Context, Transaction};
 use anyhow::Result;
 use std::sync::Arc;
 
+pub use replica::ReplicaMiddleware;
 pub use trans::TransMiddleware;
 
 pub trait Middleware {

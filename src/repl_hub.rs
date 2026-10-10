@@ -1,12 +1,13 @@
-use crate::Value;
 use std::sync::RwLock;
 use std::sync::mpsc::{self, Sender};
 use std::thread;
 
-use crate::ConnectionHandler;
+use bytes::Bytes;
+
+use crate::{Command, ConnectionHandler};
 
 pub struct ReplHub {
-    repl_senders: RwLock<Vec<Sender<Value>>>,
+    repl_senders: RwLock<Vec<Sender<Bytes>>>,
 }
 
 impl ReplHub {
@@ -23,8 +24,8 @@ impl ReplHub {
         thread::spawn(move || {
             loop {
                 match receiver.recv() {
-                    Ok(msg) => {
-                        if let Err(e) = conn.send(msg) {
+                    Ok(bytes) => {
+                        if let Err(e) = conn.write_all(&bytes.slice(..)) {
                             eprintln!("error when send command to the repla: {}", e);
                             break;
                         }
@@ -38,10 +39,14 @@ impl ReplHub {
         });
     }
 
-    pub fn prop_command(&self, cmd: Value) {
+    pub fn prop_command(&self, cmd: &Command) {
         let senders = self.repl_senders.read().unwrap();
         for sender in senders.iter() {
-            sender.send(cmd.clone()).unwrap();
+            sender.send(cmd.bytes.clone()).unwrap();
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.repl_senders.read().unwrap().is_empty()
     }
 }

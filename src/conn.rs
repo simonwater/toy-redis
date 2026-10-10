@@ -25,15 +25,15 @@ impl ConnectionHandler {
         }
     }
 
-    pub fn receive_value(&mut self) -> Result<Option<Value>> {
+    pub fn receive_value(&mut self) -> Result<Option<(Value, Bytes)>> {
         let read_cnt = self.stream.read(&mut self.tmp_buf)?;
         if read_cnt == 0 {
             return Ok(None);
         }
         self.buffer.extend_from_slice(&self.tmp_buf[..read_cnt]);
         let bytes: Bytes = self.buffer.split_to(read_cnt).freeze();
-        let input = Value::from(bytes)?;
-        Ok(Some(input))
+        let input = Value::from(bytes.clone())?;
+        Ok(Some((input, bytes)))
     }
 
     pub fn write_all(&mut self, buf: &[u8]) -> Result<()> {
@@ -41,7 +41,7 @@ impl ConnectionHandler {
         Ok(())
     }
 
-    pub fn request(&mut self, req: Value) -> Result<Option<Value>> {
+    pub fn request(&mut self, req: Value) -> Result<Option<(Value, Bytes)>> {
         self.send(req)?;
         self.receive_value()
     }
