@@ -1,8 +1,10 @@
 use anyhow::Result;
+use anyhow::bail;
 use bytes::{Bytes, BytesMut};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 
+use crate::Command;
 use crate::Value;
 
 pub struct ConnectionHandler {
@@ -34,6 +36,24 @@ impl ConnectionHandler {
         let bytes: Bytes = self.buffer.split_to(read_cnt).freeze();
         let input = Value::from(bytes.clone())?;
         Ok(Some((input, bytes)))
+    }
+
+    pub fn receive_array_values(&mut self) -> Result<Option<(Vec<Value>, Bytes)>> {
+        if let Some((value, bytes)) = self.receive_value()? {
+            match value {
+                Value::Arrays(values) => return Ok(Some((values, bytes))),
+                _ => bail!("input command must be resp array."),
+            }
+        }
+        Ok(None)
+    }
+
+    pub fn receive_command(&mut self) -> Result<Option<Command>> {
+        if let Some((values, bytes)) = self.receive_array_values()? {
+            let command = Command::new(values, bytes)?;
+            return Ok(Some(command));
+        }
+        Ok(None)
     }
 
     pub fn write_all(&mut self, buf: &[u8]) -> Result<()> {

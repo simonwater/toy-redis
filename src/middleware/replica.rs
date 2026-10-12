@@ -18,7 +18,9 @@ impl Middleware for ReplicaMiddleware {
         if ctx.is_master() && !ctx.repl_hub().is_empty() {
             match cmd.name.as_str() {
                 "SET" | "INCR" | "RPUSH" | "LPUSH" | "RPOP" | "LPOP" | "BRPOP" | "BLPOP"
-                | "XADD" => ctx.repl_hub().prop_command(cmd),
+                | "XADD" | "WATCH" | "UNWATCH" | "MULTI" | "EXEC" | "DISCARD" => {
+                    ctx.repl_hub().prop_command(cmd)
+                }
                 _ => {}
             }
         }

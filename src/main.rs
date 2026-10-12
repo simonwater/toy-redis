@@ -4,16 +4,16 @@ use std::net::TcpListener;
 use std::sync::Arc;
 use std::thread;
 use toy_redis::{
-    Command, CommandPipeline, CommandResponse, ConnectionHandler, ConnectionState, Context,
-    ReplicaMiddleware, TransMiddleware, Transaction, Value,
+    CommandPipeline, ConnectionHandler, ConnectionState, Context, ReplicaMiddleware,
+    TransMiddleware, Transaction, Value,
 };
 
 fn main() {
     let ctx_arc = Arc::new(Context::new());
-    handle_repl(&ctx_arc).unwrap();
-
     let port = &ctx_arc.args_ref().port;
     println!("Server is started on port: {}!", port);
+
+    handle_repl(&ctx_arc).unwrap();
     let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
 
     for stream in listener.incoming() {
@@ -37,10 +37,11 @@ fn main() {
 
 fn handle_connection(mut conn: ConnectionHandler, ctx: Arc<Context>) -> Result<()> {
     let mut trans = Transaction::new();
+    let cmd_pipeline = get_command_pipeline();
     // 读取命令
-    while let Some((input, bytes)) = conn.receive_value()? {
+    while let Some(command) = conn.receive_command()? {
         // 执行命令
-        let response = match execute_command(input, bytes, &ctx, &mut trans) {
+        let response = match cmd_pipeline.execute(&command, &ctx, &mut trans) {
             Ok(res) => res,
             Err(e) => Value::SimpleErrors(format!("{}", e)).into(),
         };
@@ -54,24 +55,11 @@ fn handle_connection(mut conn: ConnectionHandler, ctx: Arc<Context>) -> Result<(
     Ok(())
 }
 
-fn execute_command(
-    input: Value,
-    bytes: Bytes,
-    ctx: &Arc<Context>,
-    trans: &mut Transaction,
-) -> Result<CommandResponse> {
-    let Value::Arrays(values) = input else {
-        bail!("input command must be resp array.");
-    };
-
-    let cmd = Command::new(values, bytes)?;
-    let mut pipeline = CommandPipeline::new();
-    pipeline = pipeline
-        .use_middleware(Box::new(TransMiddleware))
-        .use_middleware(Box::new(ReplicaMiddleware));
-    let response = pipeline.execute(&cmd, ctx, trans)?;
-
-    Ok(response)
+fn get_command_pipeline() -> CommandPipeline {
+    let pipeline = CommandPipeline::new();
+    pipeline
+        .use_middleware(Box::new(TransMiddleware)) // 事务控制中间件
+        .use_middleware(Box::new(ReplicaMiddleware)) // 复本同步中间件
 }
 
 /* replacation */
@@ -116,9 +104,12 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
         let ctx = ctx.clone();
         thread::spawn(move || {
             let mut trans = Transaction::new();
+            let mut repl_pipeline = get_repl_command_pipeline();
             // 增量命令
             loop {
-                if let Err(err) = handle_repl_command(&mut conn, &ctx, &mut trans) {
+                if let Err(err) =
+                    handle_repl_command(&mut repl_pipeline, &mut conn, &ctx, &mut trans)
+                {
                     eprint!("Replica synchronization: {}", err);
                     return;
                 }
@@ -129,14 +120,20 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
 }
 
 fn handle_repl_command(
+    pipeline: &mut CommandPipeline,
     conn: &mut ConnectionHandler,
     ctx: &Arc<Context>,
     trans: &mut Transaction,
 ) -> Result<()> {
-    if let Some((value, bytes)) = conn.receive_value()? {
-        let _ = execute_command(value, bytes, ctx, trans)?;
+    if let Some(command) = conn.receive_command()? {
+        let _ = pipeline.execute(&command, &ctx, trans)?;
         Ok(())
     } else {
         bail!("connection is lost.")
     }
+}
+
+fn get_repl_command_pipeline() -> CommandPipeline {
+    let pipeline = CommandPipeline::new();
+    pipeline.use_middleware(Box::new(TransMiddleware)) // 事务控制中间件
 }
