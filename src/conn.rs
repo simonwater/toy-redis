@@ -33,8 +33,8 @@ impl ConnectionHandler {
             return Ok(None);
         }
         self.buffer.extend_from_slice(&self.tmp_buf[..read_cnt]);
-        let bytes: Bytes = self.buffer.split_to(read_cnt).freeze();
-        let input = Value::from(bytes.clone())?;
+
+        let (input, bytes) = Value::from(&mut self.buffer)?;
         Ok(Some((input, bytes)))
     }
 

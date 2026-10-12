@@ -12,6 +12,7 @@ pub enum ConnectionState {
 
 pub enum CommandResponse {
     RespValue(Value),
+    ReplConf(Value), // 副本响应主服务replconf命令时返回的结果
     Stream {
         init_value: Value,
         stream: Box<dyn Read>,
@@ -27,7 +28,7 @@ pub enum CommandResponse {
 impl CommandResponse {
     pub fn run(self, mut conn: ConnectionHandler, ctx: &Arc<Context>) -> Result<ConnectionState> {
         match self {
-            Self::RespValue(value) => {
+            Self::RespValue(value) | Self::ReplConf(value) => {
                 conn.write_all(&value.to_bytes())?;
                 Ok(ConnectionState::KeepAlive(conn))
             }

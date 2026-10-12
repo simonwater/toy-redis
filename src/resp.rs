@@ -1,5 +1,5 @@
 use anyhow::{Result, bail};
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 
 use crate::db::StreamEntry;
 
@@ -17,9 +17,12 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn from(input: Bytes) -> Result<Value> {
+    pub fn from(input: &mut BytesMut) -> Result<(Value, Bytes)> {
         let mut parser = Parser::new(input);
-        parser.parse()
+        let value = parser.parse()?;
+        let pos = parser.pos;
+        let parsed_bytes = input.split_to(pos).freeze();
+        Ok((value, parsed_bytes))
     }
 
     pub fn serilize(&self, out: &mut Vec<u8>) {
@@ -127,13 +130,13 @@ impl Value {
     }
 }
 
-struct Parser {
+struct Parser<'a> {
     pos: usize,
-    input: Bytes,
+    input: &'a mut BytesMut,
 }
 
-impl Parser {
-    fn new(input: Bytes) -> Self {
+impl<'a> Parser<'a> {
+    fn new(input: &'a mut BytesMut) -> Self {
         Self { input, pos: 0 }
     }
 
@@ -189,11 +192,14 @@ impl Parser {
         }
         let len = len as usize;
         self.consume_terminator()?;
-        let val = self.input.slice(self.pos..self.pos + len);
+        let val = &self.input[self.pos..self.pos + len];
+        let bytes = Bytes::copy_from_slice(val); // todo: 零拷贝优化·
         self.pos += len;
-        self.consume_terminator()?;
+        if self.has_ternimator() {
+            self.consume_terminator()?;
+        }
 
-        Ok(Value::BulkStrings(val))
+        Ok(Value::BulkStrings(bytes))
     }
 
     fn arrays(&mut self) -> Result<Value> {
@@ -269,6 +275,10 @@ impl Parser {
         self.input.get(self.pos).copied().unwrap_or(b'\0')
     }
 
+    fn peek_at(&self, pos: usize) -> u8 {
+        self.input.get(pos).copied().unwrap_or(b'\0')
+    }
+
     fn _advance_if_eq(&mut self, val: u8) -> bool {
         let cur = self.peek();
         if cur == val {
@@ -276,6 +286,11 @@ impl Parser {
             return true;
         }
         return false;
+    }
+
+    // 判断当前位置是否有 \r\n 结束标志
+    fn has_ternimator(&mut self) -> bool {
+        self.peek_at(self.pos) == b'\r' && self.peek_at(self.pos + 1) == b'\n'
     }
 
     fn consume_terminator(&mut self) -> Result<()> {
@@ -288,10 +303,11 @@ impl Parser {
         let cur = self.peek();
         if cur != val {
             bail!(
-                "expected: {}, but got: {} at position: {}",
+                "expected: {:?}, but got: {:?} at position: {} for input: {:?}",
                 val as char,
                 cur as char,
-                self.pos
+                self.pos,
+                self.input
             );
         }
         self.pos += 1;
@@ -363,15 +379,23 @@ mod tests {
 
     #[test]
     fn test_simple() {
-        let s = Bytes::from("*1\r\n$4\r\nPING\r\n");
-        let value = Value::from(s).unwrap();
+        let mut s = BytesMut::from("*1\r\n$4\r\nPING\r\n");
+        let value = Value::from(&mut s).unwrap();
         println!("{:?}", value);
     }
 
     #[test]
     fn test_arr() {
-        let s = Bytes::from("*2\r\n*3\r\n:1\r\n:2\r\n:3\r\n*2\r\n+Hello\r\n-World\r\n");
-        let value = Value::from(s).unwrap();
+        let mut s = BytesMut::from("*2\r\n*3\r\n:1\r\n:2\r\n:3\r\n*2\r\n+Hello\r\n-World\r\n");
+        let value = Value::from(&mut s).unwrap();
+        println!("{:?}", value);
+    }
+
+    #[test]
+    fn test_rdb() {
+        let mut bytes_mut = BytesMut::with_capacity(1024);
+        bytes_mut.extend_from_slice(b"$88\r\nREDIS0011\xfa\tredis-ver\x057.2.0\xfa\nredis-bits\xc0@\xfa\x05ctime\xc2m\x08\xbce\xfa\x08used-mem\xc2\xb0\xc4\x10\0\xfa\x08aof-base\xc0\0\xff\xf0n;\xfe\xc0\xffZ\xa2");
+        let value = Value::from(&mut bytes_mut).unwrap();
         println!("{:?}", value);
     }
 }

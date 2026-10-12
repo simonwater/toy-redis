@@ -92,10 +92,6 @@ pub(super) fn execute_info(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandR
     Ok(Bytes::from(out).into())
 }
 
-pub(super) fn execute_replconf(_cmd: &Command, _ctx: &Arc<Context>) -> Result<CommandResponse> {
-    Ok("OK".into())
-}
-
 pub(super) fn execute_psync(_cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
     let master_id = ctx.info_ref().get_master_replid();
 

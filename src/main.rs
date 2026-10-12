@@ -4,8 +4,8 @@ use std::net::TcpListener;
 use std::sync::Arc;
 use std::thread;
 use toy_redis::{
-    CommandPipeline, ConnectionHandler, ConnectionState, Context, ReplicaMiddleware,
-    TransMiddleware, Transaction, Value,
+    CommandPipeline, CommandResponse, ConnectionHandler, ConnectionState, Context,
+    ReplicaMiddleware, TransMiddleware, Transaction, Value,
 };
 
 fn main() {
@@ -99,7 +99,8 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
             Value::BulkStrings("?".into()),
             Value::BulkStrings("-1".into()),
         ];
-        let _init_value = conn.send(Value::Arrays(cmd))?;
+        let _init_msg = conn.send(Value::Arrays(cmd))?;
+        let _init_value = conn.receive_value()?;
         let _rdb_stream = conn.receive_value()?;
         let ctx = ctx.clone();
         thread::spawn(move || {
@@ -107,11 +108,12 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
             let mut repl_pipeline = get_repl_command_pipeline();
             // 增量命令
             loop {
-                if let Err(err) =
-                    handle_repl_command(&mut repl_pipeline, &mut conn, &ctx, &mut trans)
-                {
-                    eprint!("Replica synchronization: {}", err);
-                    return;
+                match handle_repl_command(&mut repl_pipeline, conn, &ctx, &mut trans) {
+                    Ok(keep_conn) => conn = keep_conn,
+                    Err(err) => {
+                        eprint!("Replica synchronization: {}", err);
+                        return;
+                    }
                 }
             }
         });
@@ -121,15 +123,23 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
 
 fn handle_repl_command(
     pipeline: &mut CommandPipeline,
-    conn: &mut ConnectionHandler,
+    mut conn: ConnectionHandler,
     ctx: &Arc<Context>,
     trans: &mut Transaction,
-) -> Result<()> {
+) -> Result<ConnectionHandler> {
     if let Some(command) = conn.receive_command()? {
-        let _ = pipeline.execute(&command, &ctx, trans)?;
-        Ok(())
+        let response = pipeline.execute(&command, &ctx, trans)?;
+        if matches!(response, CommandResponse::ReplConf(_)) {
+            match response.run(conn, &ctx)? {
+                // ReplConf类型的Response需要响应结果
+                ConnectionState::KeepAlive(keep_conn) => return Ok(keep_conn),
+                _ => bail!("unsupported connection state!"),
+            }
+        }
+        // 其他类型Response不返回结果
+        Ok(conn)
     } else {
-        bail!("connection is lost.")
+        bail!("master server is closed!")
     }
 }
 
