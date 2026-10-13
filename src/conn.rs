@@ -11,6 +11,7 @@ pub struct ConnectionHandler {
     buffer: BytesMut,
     tmp_buf: [u8; 1024],
     stream: TcpStream,
+    cmd_total_bytes: usize,
 }
 
 impl ConnectionHandler {
@@ -24,6 +25,7 @@ impl ConnectionHandler {
             buffer: BytesMut::with_capacity(4096),
             tmp_buf: [0u8; 1024],
             stream,
+            cmd_total_bytes: 0,
         }
     }
 
@@ -56,6 +58,15 @@ impl ConnectionHandler {
         Ok(None)
     }
 
+    pub fn receive_command_with_stat(&mut self) -> Result<Option<Command>> {
+        if let Some((values, bytes)) = self.receive_array_values()? {
+            self.cmd_total_bytes += bytes.len();
+            let command = Command::new(values, bytes)?;
+            return Ok(Some(command));
+        }
+        Ok(None)
+    }
+
     pub fn write_all(&mut self, buf: &[u8]) -> Result<()> {
         self.stream.write_all(buf)?;
         Ok(())
@@ -76,5 +87,13 @@ impl ConnectionHandler {
 
     pub fn get_stream(&mut self) -> &mut TcpStream {
         &mut self.stream
+    }
+
+    pub fn reset_cmd_total_bytes(&mut self) {
+        self.cmd_total_bytes = 0;
+    }
+
+    pub fn get_cmd_total_bytes(&self) -> usize {
+        self.cmd_total_bytes
     }
 }

@@ -1,5 +1,5 @@
 use super::Middleware;
-use crate::{Command, CommandResponse, Context, Transaction};
+use crate::{Command, CommandResponse, Context, Session};
 use anyhow::Result;
 use std::sync::Arc;
 
@@ -10,9 +10,10 @@ impl Middleware for TransMiddleware {
         &self,
         cmd: &Command,
         ctx: &Arc<Context>,
-        trans: &mut Transaction,
-        next: &dyn Fn(&mut Transaction) -> Result<CommandResponse>,
+        session: &mut Session,
+        next: &dyn Fn(&mut Session) -> Result<CommandResponse>,
     ) -> Result<CommandResponse> {
+        let trans = session.trans_mut();
         match cmd.name.as_str() {
             "WATCH" => return trans.watch(cmd, ctx),
             "UNWATCH" => return trans.unwatch(),
@@ -27,6 +28,6 @@ impl Middleware for TransMiddleware {
             return Ok(res);
         }
 
-        next(trans)
+        next(session)
     }
 }

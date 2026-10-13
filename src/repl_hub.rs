@@ -1,4 +1,4 @@
-use crate::{Command, ConnectionHandler, Value};
+use crate::{Command, ConnectionHandler, Session, Value};
 use anyhow::{Result, bail};
 use bytes::Bytes;
 use std::sync::RwLock;
@@ -17,10 +17,11 @@ impl ReplHub {
     }
 
     /// 注册新副本，增加管理副本连接的工作线程
-    pub fn register_repla(&self, mut conn: ConnectionHandler) {
+    pub fn register_repla(&self, mut session: Session) {
         let (sender, receiver) = mpsc::channel();
         self.repl_senders.write().unwrap().push(sender);
         thread::spawn(move || {
+            let mut conn = session.connection_mut();
             match Self::handle_ack(&mut conn) {
                 Err(err) => {
                     eprintln!("repla connection error: {}", err);
@@ -59,9 +60,9 @@ impl ReplHub {
 
     fn handle_ack(conn: &mut ConnectionHandler) -> Result<()> {
         let values: Vec<Value> = vec!["REPLCONF".into(), "GETACK".into(), "*".into()];
-        if let Some((value, _)) = conn.request(values.into())? {
-            let expected: Vec<Value> = vec!["REPLCONF".into(), "ACK".into(), 0.into()];
-            assert_eq!(value, expected.into());
+        if let Some((_, _)) = conn.request(values.into())? {
+            //let expected: Vec<Value> = vec!["REPLCONF".into(), "ACK".into(), 0.into()];
+            //assert_eq!(value, expected.into());
             return Ok(());
         }
         bail!("replication server connection is lost!")

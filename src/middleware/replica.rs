@@ -1,5 +1,5 @@
 use super::Middleware;
-use crate::{Command, CommandResponse, Context, Transaction};
+use crate::{Command, CommandResponse, Context, Session};
 use anyhow::Result;
 use std::sync::Arc;
 
@@ -10,10 +10,10 @@ impl Middleware for ReplicaMiddleware {
         &self,
         cmd: &Command,
         ctx: &Arc<Context>,
-        trans: &mut Transaction,
-        next: &dyn Fn(&mut Transaction) -> Result<CommandResponse>,
+        session: &mut Session,
+        next: &dyn Fn(&mut Session) -> Result<CommandResponse>,
     ) -> Result<CommandResponse> {
-        let result = next(trans);
+        let result = next(session);
 
         if ctx.is_master() && !ctx.repl_hub().is_empty() {
             match cmd.name.as_str() {

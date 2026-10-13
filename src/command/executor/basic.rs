@@ -6,11 +6,11 @@ use bytes::Bytes;
 use std::io::Cursor;
 use std::sync::Arc;
 
-pub(super) fn execute_ping(_cmd: &Command, _ctx: &Arc<Context>) -> Result<CommandResponse> {
+pub(super) fn execute_ping(_cmd: &Command) -> Result<CommandResponse> {
     Ok("PONG".into())
 }
 
-pub(super) fn execute_echo(cmd: &Command, _ctx: &Arc<Context>) -> Result<CommandResponse> {
+pub(super) fn execute_echo(cmd: &Command) -> Result<CommandResponse> {
     let mut arg_iter = cmd.args.iter();
     let arg = arg_iter.next();
     if arg.is_none() {

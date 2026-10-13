@@ -1,3 +1,7 @@
+mod session;
+
+pub use session::Session;
+
 use crate::{Information, MemoryDB, ReplHub};
 use clap::Parser;
 

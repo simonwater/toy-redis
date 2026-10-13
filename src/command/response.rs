@@ -3,10 +3,10 @@ use bytes::Bytes;
 use std::io::Read;
 use std::sync::Arc;
 
-use crate::{ConnectionHandler, Context, Value};
+use crate::{Context, Session, Value};
 
 pub enum ConnectionState {
-    KeepAlive(ConnectionHandler),
+    KeepAlive(Session),
     TakenOver,
 }
 
@@ -26,11 +26,12 @@ pub enum CommandResponse {
 }
 
 impl CommandResponse {
-    pub fn run(self, mut conn: ConnectionHandler, ctx: &Arc<Context>) -> Result<ConnectionState> {
+    pub fn run(self, ctx: &Arc<Context>, mut session: Session) -> Result<ConnectionState> {
+        let conn = session.connection_mut();
         match self {
             Self::RespValue(value) | Self::ReplConf(value) => {
                 conn.write_all(&value.to_bytes())?;
-                Ok(ConnectionState::KeepAlive(conn))
+                Ok(ConnectionState::KeepAlive(session))
             }
             Self::Stream {
                 init_value,
@@ -52,7 +53,7 @@ impl CommandResponse {
                 let head = format!("${}\r\n", len);
                 conn.write_all(head.as_bytes())?;
                 std::io::copy(&mut stream, conn.get_stream())?;
-                ctx.repl_hub().register_repla(conn);
+                ctx.repl_hub().register_repla(session);
                 Ok(ConnectionState::TakenOver)
             }
         }

@@ -1,6 +1,5 @@
 mod basic;
 mod list;
-mod repl_conf;
 mod stream;
 
 use super::{Command, response::CommandResponse};
@@ -10,8 +9,8 @@ use std::sync::Arc;
 
 pub fn execute(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
     match cmd.name.as_str() {
-        "PING" => basic::execute_ping(cmd, ctx),
-        "ECHO" => basic::execute_echo(cmd, ctx),
+        "PING" => basic::execute_ping(cmd),
+        "ECHO" => basic::execute_echo(cmd),
         "INFO" => basic::execute_info(cmd, ctx),
         "GET" => basic::execute_get(cmd, ctx),
         "SET" => basic::execute_set(cmd, ctx),
@@ -28,7 +27,6 @@ pub fn execute(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
         "XADD" => stream::execute_xadd(cmd, ctx),
         "XRANGE" => stream::execute_xrange(cmd, ctx),
         "XREAD" => stream::execute_xread(cmd, ctx),
-        "REPLCONF" => repl_conf::execute_replconf(cmd, ctx),
         "PSYNC" => basic::execute_psync(cmd, ctx),
         _ => bail!("unsupported command!"),
     }

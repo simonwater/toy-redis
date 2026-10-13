@@ -1,10 +1,12 @@
+mod repl_conf;
 mod replica;
 mod trans;
 
-use crate::{CmdExecutor, Command, CommandResponse, Context, Transaction};
+use crate::{CmdExecutor, Command, CommandResponse, Context, context::Session};
 use anyhow::Result;
 use std::sync::Arc;
 
+pub use repl_conf::ReplConfMiddleware;
 pub use replica::ReplicaMiddleware;
 pub use trans::TransMiddleware;
 
@@ -13,8 +15,8 @@ pub trait Middleware {
         &self,
         cmd: &Command,
         ctx: &Arc<Context>,
-        trans: &mut Transaction,
-        next: &dyn Fn(&mut Transaction) -> Result<CommandResponse>,
+        session: &mut Session,
+        next: &dyn Fn(&mut Session) -> Result<CommandResponse>,
     ) -> Result<CommandResponse>;
 }
 
@@ -38,9 +40,9 @@ impl CommandPipeline {
         &self,
         cmd: &Command,
         ctx: &Arc<Context>,
-        trans: &mut Transaction,
+        session: &mut Session,
     ) -> Result<CommandResponse> {
-        self.execute_at(cmd, 0, ctx, trans)
+        self.execute_at(cmd, 0, ctx, session)
     }
 
     fn execute_at(
@@ -48,12 +50,12 @@ impl CommandPipeline {
         cmd: &Command,
         index: usize,
         ctx: &Arc<Context>,
-        trans: &mut Transaction,
+        session: &mut Session,
     ) -> Result<CommandResponse> {
         if index < self.middlewares.len() {
             let mw = &self.middlewares[index];
-            mw.handle(cmd, ctx, trans, &|trans| {
-                self.execute_at(cmd, index + 1, ctx, trans)
+            mw.handle(cmd, ctx, session, &|session| {
+                self.execute_at(cmd, index + 1, ctx, session)
             })
         } else {
             CmdExecutor::execute(cmd, ctx)
