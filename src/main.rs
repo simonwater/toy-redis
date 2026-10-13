@@ -30,7 +30,7 @@ fn main() {
                 });
             }
             Err(e) => {
-                eprintln!("err: {}", e);
+                eprintln!("err: {:?}", e);
             }
         }
     }
@@ -113,7 +113,7 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
                 match handle_repl_command(&mut repl_pipeline, &ctx, session) {
                     Ok(keep_session) => session = keep_session,
                     Err(err) => {
-                        eprint!("Replica synchronization: {}", err);
+                        eprintln!("Replica synchronization err: {:?}", err);
                         return;
                     }
                 }

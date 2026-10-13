@@ -30,12 +30,16 @@ impl ConnectionHandler {
     }
 
     pub fn receive_value(&mut self) -> Result<Option<(Value, Bytes)>> {
+        if !self.buffer.is_empty() {
+            let (input, bytes) = Value::from(&mut self.buffer)?;
+            return Ok(Some((input, bytes)));
+        }
+
         let read_cnt = self.stream.read(&mut self.tmp_buf)?;
         if read_cnt == 0 {
             return Ok(None);
         }
         self.buffer.extend_from_slice(&self.tmp_buf[..read_cnt]);
-
         let (input, bytes) = Value::from(&mut self.buffer)?;
         Ok(Some((input, bytes)))
     }

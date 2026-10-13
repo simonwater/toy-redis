@@ -21,14 +21,14 @@ impl ReplHub {
         let (sender, receiver) = mpsc::channel();
         self.repl_senders.write().unwrap().push(sender);
         thread::spawn(move || {
-            let mut conn = session.connection_mut();
-            match Self::handle_ack(&mut conn) {
-                Err(err) => {
-                    eprintln!("repla connection error: {}", err);
-                    return;
-                }
-                _ => {}
-            }
+            let conn = session.connection_mut();
+            // match Self::handle_ack(&mut conn) {
+            //     Err(err) => {
+            //         eprintln!("repla connection error: {}", err);
+            //         return;
+            //     }
+            //     _ => {}
+            // }
 
             loop {
                 match receiver.recv() {
@@ -58,7 +58,7 @@ impl ReplHub {
         self.repl_senders.read().unwrap().is_empty()
     }
 
-    fn handle_ack(conn: &mut ConnectionHandler) -> Result<()> {
+    fn _handle_ack(conn: &mut ConnectionHandler) -> Result<()> {
         let values: Vec<Value> = vec!["REPLCONF".into(), "GETACK".into(), "*".into()];
         if let Some((_, _)) = conn.request(values.into())? {
             //let expected: Vec<Value> = vec!["REPLCONF".into(), "ACK".into(), 0.into()];
