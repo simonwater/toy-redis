@@ -114,7 +114,7 @@ fn empty_rdb() -> Vec<u8> {
         .collect()
 }
 
-pub(super) fn execute_wait(cmd: &Command, _ctx: &Arc<Context>) -> Result<CommandResponse> {
+pub(super) fn execute_wait(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
     let mut arg_iter = cmd.args.iter();
     let _numreplicas = arg_iter
         .next()
@@ -124,6 +124,7 @@ pub(super) fn execute_wait(cmd: &Command, _ctx: &Arc<Context>) -> Result<Command
         .next()
         .ok_or_else(|| anyhow!("wait command missing `timeout` argument"))?
         .to_integer()?;
+    let repl_num = ctx.repl_hub().len() as i64;
 
-    Ok(0.into())
+    Ok(repl_num.into())
 }

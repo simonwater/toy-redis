@@ -1,5 +1,5 @@
 use super::Middleware;
-use crate::{Command, CommandResponse, Context, Session};
+use crate::{Command, CommandResponse, Context, ReplMsg, Session};
 use anyhow::Result;
 use std::sync::Arc;
 
@@ -19,6 +19,7 @@ impl Middleware for ReplicaMiddleware {
             match cmd.name.as_str() {
                 "SET" | "INCR" | "RPUSH" | "LPUSH" | "RPOP" | "LPOP" | "BRPOP" | "BLPOP"
                 | "XADD" | "WATCH" | "UNWATCH" | "MULTI" | "EXEC" | "DISCARD" => {
+                    let cmd = ReplMsg::Progation(cmd.bytes.clone());
                     ctx.repl_hub().prop_command(cmd)
                 }
                 _ => {}

@@ -18,5 +18,5 @@ pub use middleware::{
     CommandPipeline, Middleware, ReplConfMasterMiddleware, ReplConfSlaveMiddleware,
     ReplicaMiddleware, TransMiddleware,
 };
-pub use repl_hub::ReplHub;
+pub use repl_hub::{ReplHub, ReplMsg};
 pub use resp::Value;
