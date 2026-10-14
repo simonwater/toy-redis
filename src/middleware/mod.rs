@@ -6,7 +6,7 @@ use crate::{CmdExecutor, Command, CommandResponse, Context, context::Session};
 use anyhow::Result;
 use std::sync::Arc;
 
-pub use repl_conf::ReplConfMiddleware;
+pub use repl_conf::{ReplConfMasterMiddleware, ReplConfSlaveMiddleware};
 pub use replica::ReplicaMiddleware;
 pub use trans::TransMiddleware;
 

@@ -15,7 +15,8 @@ pub use context::{Args, Context, Session};
 pub use db::MemoryDB;
 pub use info::Information;
 pub use middleware::{
-    CommandPipeline, Middleware, ReplConfMiddleware, ReplicaMiddleware, TransMiddleware,
+    CommandPipeline, Middleware, ReplConfMasterMiddleware, ReplConfSlaveMiddleware,
+    ReplicaMiddleware, TransMiddleware,
 };
 pub use repl_hub::ReplHub;
 pub use resp::Value;

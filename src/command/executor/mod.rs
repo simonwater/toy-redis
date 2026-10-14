@@ -28,6 +28,7 @@ pub fn execute(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
         "XRANGE" => stream::execute_xrange(cmd, ctx),
         "XREAD" => stream::execute_xread(cmd, ctx),
         "PSYNC" => basic::execute_psync(cmd, ctx),
+        "WAIT" => basic::execute_wait(cmd, ctx),
         _ => bail!("unsupported command!"),
     }
 }

@@ -106,10 +106,24 @@ pub(super) fn execute_psync(_cmd: &Command, ctx: &Arc<Context>) -> Result<Comman
     Ok(response)
 }
 
-pub(super) fn empty_rdb() -> Vec<u8> {
+fn empty_rdb() -> Vec<u8> {
     const EMPTY_RDB_HEX: &'static str = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2";
     (0..EMPTY_RDB_HEX.len())
         .step_by(2)
         .map(|i| u8::from_str_radix(&EMPTY_RDB_HEX[i..i + 2], 16).unwrap())
         .collect()
+}
+
+pub(super) fn execute_wait(cmd: &Command, _ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut arg_iter = cmd.args.iter();
+    let _numreplicas = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("wait command missing `numreplicas` argument"))?
+        .to_integer()?;
+    let _timeout = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("wait command missing `timeout` argument"))?
+        .to_integer()?;
+
+    Ok(0.into())
 }

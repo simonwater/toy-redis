@@ -5,7 +5,8 @@ use std::sync::Arc;
 use std::thread;
 use toy_redis::{
     CommandPipeline, CommandResponse, ConnectionHandler, ConnectionState, Context,
-    ReplConfMiddleware, ReplicaMiddleware, Session, TransMiddleware, Value,
+    ReplConfMasterMiddleware, ReplConfSlaveMiddleware, ReplicaMiddleware, Session, TransMiddleware,
+    Value,
 };
 
 fn main() {
@@ -60,7 +61,7 @@ fn get_command_pipeline() -> CommandPipeline {
     pipeline
         .use_middleware(Box::new(TransMiddleware)) // 事务控制中间件
         .use_middleware(Box::new(ReplicaMiddleware)) // 复本同步中间件
-        .use_middleware(Box::new(ReplConfMiddleware))
+        .use_middleware(Box::new(ReplConfMasterMiddleware))
 }
 
 /* replacation */
@@ -145,9 +146,10 @@ fn handle_repl_command(
     }
 }
 
+/// 主从同步的副本执行命令时用到的中间件： 事务、replconf
 fn get_repl_command_pipeline() -> CommandPipeline {
     let pipeline = CommandPipeline::new();
     pipeline
         .use_middleware(Box::new(TransMiddleware)) // 事务控制中间件
-        .use_middleware(Box::new(ReplConfMiddleware))
+        .use_middleware(Box::new(ReplConfSlaveMiddleware))
 }

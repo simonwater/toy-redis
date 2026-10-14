@@ -3,13 +3,31 @@ use crate::{Command, CommandResponse, Context, Session, Value};
 use anyhow::{Result, bail};
 use std::sync::Arc;
 
-pub struct ReplConfMiddleware;
+pub struct ReplConfMasterMiddleware;
 
-impl Middleware for ReplConfMiddleware {
+impl Middleware for ReplConfMasterMiddleware {
     fn handle(
         &self,
         cmd: &Command,
-        ctx: &Arc<Context>,
+        _ctx: &Arc<Context>,
+        session: &mut Session,
+        next: &dyn Fn(&mut Session) -> Result<CommandResponse>,
+    ) -> Result<CommandResponse> {
+        if cmd.name.as_str() == "REPLCONF" {
+            return Ok("OK".into());
+        }
+        return next(session);
+    }
+}
+
+// 从库
+pub struct ReplConfSlaveMiddleware;
+
+impl Middleware for ReplConfSlaveMiddleware {
+    fn handle(
+        &self,
+        cmd: &Command,
+        _ctx: &Arc<Context>,
         session: &mut Session,
         next: &dyn Fn(&mut Session) -> Result<CommandResponse>,
     ) -> Result<CommandResponse> {
@@ -17,12 +35,6 @@ impl Middleware for ReplConfMiddleware {
             return next(session);
         }
 
-        // 主服务
-        if ctx.is_master() {
-            return Ok("OK".into());
-        }
-
-        // 复本
         if let Some(value) = cmd.args.iter().next() {
             let arg1 = value.to_string()?;
             match arg1.as_str() {
