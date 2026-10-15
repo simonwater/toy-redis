@@ -44,7 +44,10 @@ fn handle_connection(ctx: Arc<Context>, mut session: Session) -> Result<()> {
         // 执行命令
         let response = match cmd_pipeline.execute(&command, &ctx, &mut session) {
             Ok(res) => res,
-            Err(e) => Value::SimpleErrors(format!("{}", e)).into(),
+            Err(e) => {
+                eprintln!("command pipeline execute error: {}", e);
+                Value::SimpleErrors(format!("{}", e)).into()
+            }
         };
 
         // 回写响应

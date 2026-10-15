@@ -1,15 +1,19 @@
-use crate::{ConnectionHandler, Session, Value};
+use crate::{ConnectionHandler, Session};
 use anyhow::{Result, bail};
 use bytes::Bytes;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::sync::mpsc::{self, Sender};
 use std::thread;
+use std::time::Duration;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ReplMsg {
-    Progation(Bytes),
-    GetAck(Arc<Sender<Result<i64>>>),
+    Propagation(Bytes),
+    GetAck {
+        respond: Arc<Sender<i64>>,
+        timeout: Duration,
+    },
 }
 
 pub struct ReplHub {
@@ -28,26 +32,17 @@ impl ReplHub {
         let (sender, receiver) = mpsc::channel();
         self.repl_senders.write().unwrap().push(sender);
         thread::spawn(move || {
-            let mut conn = session.connection_mut();
+            let conn = session.connection_mut();
             loop {
                 match receiver.recv() {
                     Ok(cmd) => match cmd {
-                        ReplMsg::Progation(bytes) => {
-                            if let Err(e) = conn.write_all(&bytes.slice(..)) {
-                                eprintln!("error when send progation command to the repla: {}", e);
-                                break;
-                            }
-                        }
-                        ReplMsg::GetAck(sender) => {
-                            let ack = Self::handle_ack(&mut conn);
-                            if let Err(e) = sender.send(ack) {
-                                eprintln!("error when send `GETACK` command to the repla: {}", e);
-                                break;
-                            }
+                        ReplMsg::Propagation(bytes) => Self::handle_prop_command(bytes, conn),
+                        ReplMsg::GetAck { respond, timeout } => {
+                            Self::handle_ack_msg(respond, timeout, conn)
                         }
                     },
                     Err(e) => {
-                        eprintln!("repla channel error: {}", e);
+                        eprintln!("propagation channel error: {}", e);
                         break;
                     }
                 };
@@ -55,7 +50,45 @@ impl ReplHub {
         });
     }
 
-    pub fn prop_command(&self, cmd: ReplMsg) {
+    fn handle_prop_command(bytes: Bytes, conn: &mut ConnectionHandler) {
+        if let Err(e) = conn.write_all(&bytes.slice(..)) {
+            eprintln!(
+                "error when send propagation command to the replication: {}",
+                e
+            );
+        }
+    }
+
+    fn handle_ack_msg(respond: Arc<Sender<i64>>, timeout: Duration, conn: &mut ConnectionHandler) {
+        conn.get_stream().set_read_timeout(Some(timeout)).unwrap();
+        match Self::get_ack(conn) {
+            Ok(offset) => {
+                if let Err(e) = respond.send(offset) {
+                    eprintln!("error when respond ack to main thread: {}", e);
+                }
+            }
+            Err(e) => {
+                eprintln!("error when send `GETACK` to the replication: {}", e)
+            }
+        }
+        conn.get_stream().set_read_timeout(None).unwrap();
+    }
+
+    fn get_ack(conn: &mut ConnectionHandler) -> Result<i64> {
+        let bytes_vec = vec![
+            Bytes::from_static(b"REPLCONF"),
+            Bytes::from_static(b"GETACK"),
+            Bytes::from_static(b"*"),
+        ];
+        if let Some((value, _)) = conn.request(bytes_vec.into())? {
+            let values = value.into_array()?;
+            return values.last().unwrap().to_integer();
+        }
+        // 返回None时对端关闭了连接
+        bail!("replication server is unresponsive and has shut down!")
+    }
+
+    pub fn prop_replmsg(&self, cmd: ReplMsg) {
         let senders = self.repl_senders.read().unwrap();
         for sender in senders.iter() {
             sender.send(cmd.clone()).unwrap();
@@ -68,13 +101,5 @@ impl ReplHub {
 
     pub fn is_empty(&self) -> bool {
         self.repl_senders.read().unwrap().is_empty()
-    }
-
-    fn handle_ack(conn: &mut ConnectionHandler) -> Result<i64> {
-        let values: Vec<Value> = vec!["REPLCONF".into(), "GETACK".into(), "*".into()];
-        if let Some((value, _)) = conn.request(values.into())? {
-            return value.to_integer();
-        }
-        bail!("replication server connection is lost!")
     }
 }

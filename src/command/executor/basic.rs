@@ -1,10 +1,12 @@
 use super::CommandResponse;
 use crate::info::SectionType;
-use crate::{Command, Context, Value, db};
+use crate::{Command, Context, ReplMsg, Value, db};
 use anyhow::{Result, anyhow, bail};
 use bytes::Bytes;
 use std::io::Cursor;
 use std::sync::Arc;
+use std::sync::mpsc::{self, RecvTimeoutError};
+use std::time::{Duration, Instant};
 
 pub(super) fn execute_ping(_cmd: &Command) -> Result<CommandResponse> {
     Ok("PONG".into())
@@ -116,15 +118,49 @@ fn empty_rdb() -> Vec<u8> {
 
 pub(super) fn execute_wait(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
     let mut arg_iter = cmd.args.iter();
-    let _numreplicas = arg_iter
+    let numreplicas = arg_iter
         .next()
         .ok_or_else(|| anyhow!("wait command missing `numreplicas` argument"))?
         .to_integer()?;
-    let _timeout = arg_iter
+    let timeout = arg_iter
         .next()
         .ok_or_else(|| anyhow!("wait command missing `timeout` argument"))?
         .to_integer()?;
-    let repl_num = ctx.repl_hub().len() as i64;
+    let total_time = Duration::from_millis(timeout as u64);
 
-    Ok(repl_num.into())
+    let (sender, receiver) = mpsc::channel();
+    let sender = Arc::new(sender);
+    let msg = ReplMsg::GetAck {
+        respond: sender.clone(),
+        timeout: total_time,
+    };
+    ctx.repl_hub().prop_replmsg(msg);
+
+    let numreplicas = numreplicas.min(ctx.repl_hub().len() as i64);
+    let mut res = 0;
+    let start = Instant::now();
+    loop {
+        if res == numreplicas {
+            break;
+        }
+        let pasted_time = Instant::now() - start;
+        if pasted_time >= total_time {
+            break;
+        }
+        let remaining_time = total_time - pasted_time;
+        match receiver.recv_timeout(remaining_time) {
+            Ok(_offset) => res += 1,
+            Err(e) => match e {
+                RecvTimeoutError::Timeout => {
+                    eprintln!("time out when wait receive respond");
+                    break;
+                }
+                RecvTimeoutError::Disconnected => {
+                    bail!("error when wait receive respond: {}", e)
+                }
+            },
+        }
+    }
+
+    Ok(res.into())
 }

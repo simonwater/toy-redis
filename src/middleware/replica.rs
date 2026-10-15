@@ -19,8 +19,8 @@ impl Middleware for ReplicaMiddleware {
             match cmd.name.as_str() {
                 "SET" | "INCR" | "RPUSH" | "LPUSH" | "RPOP" | "LPOP" | "BRPOP" | "BLPOP"
                 | "XADD" | "WATCH" | "UNWATCH" | "MULTI" | "EXEC" | "DISCARD" => {
-                    let cmd = ReplMsg::Progation(cmd.bytes.clone());
-                    ctx.repl_hub().prop_command(cmd)
+                    let msg = ReplMsg::Propagation(cmd.bytes.clone());
+                    ctx.repl_hub().prop_replmsg(msg)
                 }
                 _ => {}
             }

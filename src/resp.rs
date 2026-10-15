@@ -100,7 +100,7 @@ impl Value {
             Value::BulkStrings(s) => Ok(String::from_utf8(s.to_vec())?),
             Value::NullBulkStrings => Ok("$-1\r\n".into()),
             Value::Integer(val) => Ok(val.to_string()),
-            _ => bail!("can not convert to string"),
+            _ => bail!("value: {:?} can not convert to string", self),
         }
     }
 
@@ -112,7 +112,7 @@ impl Value {
                 let s = String::from_utf8(s.to_vec())?;
                 Ok(s.parse::<i64>()?)
             }
-            _ => bail!("can not convert to integer"),
+            _ => bail!("value: {:?} can not convert to integer", self),
         }
     }
 
@@ -125,7 +125,14 @@ impl Value {
                 let s = String::from_utf8(s.to_vec())?;
                 Ok(s.parse::<f64>()?)
             }
-            _ => bail!("can not convert to double"),
+            _ => bail!("value: {:?} can not convert to double", self),
+        }
+    }
+
+    pub fn into_array(self) -> Result<Vec<Value>> {
+        match self {
+            Value::Arrays(values) => Ok(values),
+            _ => bail!("value: {:?} can not convert to array", self),
         }
     }
 }
