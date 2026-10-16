@@ -1,5 +1,6 @@
 mod basic;
 mod list;
+mod repl_sync;
 mod stream;
 
 use super::{Command, response::CommandResponse};
@@ -27,8 +28,8 @@ pub fn execute(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
         "XADD" => stream::execute_xadd(cmd, ctx),
         "XRANGE" => stream::execute_xrange(cmd, ctx),
         "XREAD" => stream::execute_xread(cmd, ctx),
-        "PSYNC" => basic::execute_psync(cmd, ctx),
-        "WAIT" => basic::execute_wait(cmd, ctx),
+        "PSYNC" => repl_sync::execute_psync(cmd, ctx),
+        "WAIT" => repl_sync::execute_wait(cmd, ctx),
         _ => bail!("unsupported command!"),
     }
 }
