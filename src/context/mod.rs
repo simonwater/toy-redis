@@ -6,23 +6,39 @@ use crate::{Information, MemoryDB, ReplHub};
 use clap::Parser;
 
 #[derive(Parser, Debug, Clone)]
-pub struct Args {
+pub struct RedisArgs {
     #[arg(short, long, default_value = "6379")]
     pub port: String,
     #[arg(long)]
     pub replicaof: Option<String>,
+    #[arg(long)]
+    pub dir: Option<String>,
+    #[arg(long)]
+    pub dbfilename: Option<String>,
+}
+
+impl RedisArgs {
+    pub fn get_arg(&self, param_name: &str) -> Option<&str> {
+        match param_name.to_lowercase().as_str() {
+            "port" => Some(self.port.as_str()),
+            "replicaof" => self.replicaof.as_deref(),
+            "dir" => self.dir.as_deref(),
+            "dbfilename" => self.dbfilename.as_deref(),
+            _ => None,
+        }
+    }
 }
 
 pub struct Context {
     db: MemoryDB,
-    args: Args,
+    args: RedisArgs,
     info: Information,
     repl_hub: ReplHub,
 }
 
 impl Context {
     pub fn new() -> Self {
-        let args = Args::parse();
+        let args = RedisArgs::parse();
         let info = Information::new(&args);
         let repl_hub = ReplHub::new();
         Self {
@@ -37,7 +53,7 @@ impl Context {
         &self.db
     }
 
-    pub fn args_ref(&self) -> &Args {
+    pub fn args_ref(&self) -> &RedisArgs {
         &self.args
     }
 

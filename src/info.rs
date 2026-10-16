@@ -1,4 +1,4 @@
-use crate::Args;
+use crate::RedisArgs;
 use std::fmt::Write;
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
@@ -24,7 +24,7 @@ pub struct Replication {
 }
 
 impl Replication {
-    fn new(args: &Args) -> Self {
+    fn new(args: &RedisArgs) -> Self {
         let role: String = if args.replicaof.is_some() {
             "slave".into()
         } else {
@@ -51,7 +51,7 @@ pub struct Information {
 }
 
 impl Information {
-    pub fn new(args: &Args) -> Self {
+    pub fn new(args: &RedisArgs) -> Self {
         Self {
             repl: Replication::new(args),
         }

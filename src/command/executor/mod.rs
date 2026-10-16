@@ -17,6 +17,7 @@ pub fn execute(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
         "SET" => basic::execute_set(cmd, ctx),
         "TYPE" => basic::execute_type(cmd, ctx),
         "INCR" => basic::execute_incr(cmd, ctx),
+        "CONFIG" => basic::execute_config(cmd, ctx),
         "RPUSH" => list::execute_rpush(cmd, ctx),
         "LPUSH" => list::execute_lpush(cmd, ctx),
         "RPOP" => list::execute_rpop(cmd, ctx),

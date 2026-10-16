@@ -21,6 +21,8 @@ STAGES=(
   # Replication
   "bw1" "ye5" "hc6" "xc1" "gl7" "eh4" "ju6" "fj0" "vm3" "cf8" "zn8" "hd5" "yg4"
   "xv6" "yd3" "my8" "tu8" "na2"
+  # RDB Persistence
+  "zg5" "jz6" "gc6" "jw4" "dq3" "sm4"
 )
 
 TARGET_SLUG=$1

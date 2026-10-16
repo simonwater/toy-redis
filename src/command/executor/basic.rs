@@ -90,3 +90,24 @@ pub(super) fn execute_info(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandR
     ctx.info_ref().output(sec_type, &mut out);
     Ok(Bytes::from(out).into())
 }
+
+pub(super) fn execute_config(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut arg_iter = cmd.args.iter();
+    let action = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("ERR CONFIG command need action argument"))?
+        .to_string()?;
+    if action.to_uppercase().as_str() == "GET" {
+        let name = arg_iter
+            .next()
+            .ok_or_else(|| anyhow!("ERR CONFIG command need at least one parameter"))?
+            .to_string()?;
+        let value = ctx.args_ref().get_arg(&name).unwrap_or("");
+        let name_bytes = Bytes::from(name.into_bytes());
+        let value_bytes = Bytes::copy_from_slice(value.as_bytes());
+        let values: Vec<Value> = vec![name_bytes.into(), value_bytes.into()];
+        Ok(values.into())
+    } else {
+        bail!("ERR CONFIG command not support {} action", action)
+    }
+}

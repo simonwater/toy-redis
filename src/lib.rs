@@ -11,7 +11,7 @@ pub use command::{
     Command, CommandResponse, ConnectionState, Transaction, executor as CmdExecutor,
 };
 pub use conn::ConnectionHandler;
-pub use context::{Args, Context, Session};
+pub use context::{Context, RedisArgs, Session};
 pub use db::MemoryDB;
 pub use info::Information;
 pub use middleware::{
