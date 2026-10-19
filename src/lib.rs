@@ -4,6 +4,7 @@ mod context;
 pub mod db;
 mod info;
 mod middleware;
+mod rdb;
 mod repl_hub;
 mod resp;
 
@@ -18,5 +19,6 @@ pub use middleware::{
     CommandPipeline, Middleware, ReplConfMasterMiddleware, ReplConfSlaveMiddleware,
     ReplicaMiddleware, TransMiddleware,
 };
+pub use rdb::RdbParser;
 pub use repl_hub::{ReplHub, ReplMsg};
 pub use resp::Value;
