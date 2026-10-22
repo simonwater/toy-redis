@@ -164,7 +164,7 @@ impl<'a> Parser<'a> {
             b'$' => self.bulk_string(),
             b'*' => self.arrays(),
             b',' => self.double(),
-            v => bail!("unsported type: {}", v),
+            v => bail!("unsupported type: {}", v),
         }
     }
 

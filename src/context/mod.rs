@@ -41,8 +41,16 @@ impl Context {
         let args = RedisArgs::parse();
         let info = Information::new(&args);
         let repl_hub = ReplHub::new();
+        let db = match MemoryDB::from_args(&args) {
+            Ok(db) => db,
+            Err(e) => {
+                eprintln!("{}", e);
+                MemoryDB::new()
+            }
+        };
+
         Self {
-            db: MemoryDB::new(),
+            db,
             args,
             info,
             repl_hub,

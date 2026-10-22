@@ -16,13 +16,14 @@ pub enum RdbItem {
         expire_size: usize,
     },
     HashTableItem {
-        key: String,
+        key: Bytes,
         value: RdbValue,
         expire_at_ms: Option<u64>,
     },
     Checksum(u64),
 }
 
+#[derive(Debug)]
 pub enum RdbValue {
     String(Bytes),
 }
@@ -145,7 +146,7 @@ impl<R: Read + Seek> RdbParser<R> {
             };
 
             let type_byte = marker[0];
-            let key = self.parse_string()?;
+            let key = self.parse_bytes()?;
             let value = self.parse_value(type_byte)?;
 
             evt_handler(RdbItem::HashTableItem {

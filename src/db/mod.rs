@@ -1,18 +1,25 @@
 mod list;
+mod rdb;
 mod redis_object;
 mod signal;
 mod stream;
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use bytes::Bytes;
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
+use rdb::{RdbItem, RdbParser, RdbValue};
 use redis_object::RedisObject;
+use std::fs::File;
+use std::io::{Read, Seek};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 pub use list::ReList;
 pub(crate) use signal::Signal;
 pub use stream::{ReStream, StreamEntry};
+
+use crate::RedisArgs;
 
 pub const DAY_IN_MILLIS: i64 = 1000 * 60 * 60 * 24;
 
@@ -68,6 +75,43 @@ impl MemoryDB {
         Self {
             map: DashMap::with_capacity(128),
         }
+    }
+
+    pub fn from_args(args: &RedisArgs) -> Result<Self> {
+        if let (Some(dir), Some(dbfilename)) = (args.dir.as_deref(), args.dbfilename.as_deref()) {
+            let mut file_path = PathBuf::from(dir);
+            file_path.push(dbfilename);
+            if !file_path.exists() {
+                bail!("RDB file is not exists. filepath: {}", file_path.display());
+            }
+            let file = File::open(&file_path)
+                .with_context(|| format!("can not open RDB file: {}", file_path.display()))?;
+            return Self::from_rdb(file);
+        }
+        Ok(Self::new())
+    }
+
+    pub fn from_rdb<R: Read + Seek>(r: R) -> Result<Self> {
+        let db = Self::new();
+        let mut parser = RdbParser::new(r);
+        parser.parse(|rdb_item| {
+            match rdb_item {
+                RdbItem::HashTableItem {
+                    key,
+                    value,
+                    expire_at_ms,
+                } => {
+                    let ttl_ms = expire_at_ms.unwrap_or(0);
+                    match value {
+                        RdbValue::String(bytes) => db.set_with_ttl(key, bytes, ttl_ms as i64),
+                    }
+                }
+                _ => {}
+            }
+            Ok(())
+        })?;
+
+        Ok(db)
     }
 
     pub fn obj_type(&self, key: &Bytes) -> String {
@@ -138,6 +182,7 @@ impl MemoryDB {
         let item = e.value_mut();
         item.version += 1;
         item.object = RedisObject::String(bytes);
+        item.expire_timestamp_ms = ExpirationTimestamp::from_ttl(ttl_ms);
     }
 }
 
