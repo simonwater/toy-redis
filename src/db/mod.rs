@@ -77,7 +77,7 @@ impl MemoryDB {
         }
     }
 
-    pub fn from_args(args: &RedisArgs) -> Result<Self> {
+    pub fn from_context_args(args: &RedisArgs) -> Result<Self> {
         if let (Some(dir), Some(dbfilename)) = (args.dir.as_deref(), args.dbfilename.as_deref()) {
             let mut file_path = PathBuf::from(dir);
             file_path.push(dbfilename);
@@ -94,8 +94,27 @@ impl MemoryDB {
     pub fn from_rdb<R: Read + Seek>(r: R) -> Result<Self> {
         let db = Self::new();
         let mut parser = RdbParser::new(r);
+        println!("start load rdb!");
         parser.parse(|rdb_item| {
             match rdb_item {
+                RdbItem::Header { redis_ver } => {
+                    println!("current rdb redis version is: {}", redis_ver)
+                }
+                RdbItem::Meta { key, value } => {
+                    println!("metadata key: {}, value: {}", key, value)
+                }
+                RdbItem::DbIndex(i) => {
+                    println!("current database index is: {}", i)
+                }
+                RdbItem::HashTableSize {
+                    hash_size,
+                    expire_size,
+                } => {
+                    println!(
+                        "hashtable size: {}, expired size: {}",
+                        hash_size, expire_size
+                    )
+                }
                 RdbItem::HashTableItem {
                     key,
                     value,
@@ -106,7 +125,9 @@ impl MemoryDB {
                         RdbValue::String(bytes) => db.set_with_ttl(key, bytes, ttl_ms as i64),
                     }
                 }
-                _ => {}
+                RdbItem::Checksum(num) => {
+                    println!("current database checksum is: {}", num)
+                }
             }
             Ok(())
         })?;
@@ -183,6 +204,14 @@ impl MemoryDB {
         item.version += 1;
         item.object = RedisObject::String(bytes);
         item.expire_timestamp_ms = ExpirationTimestamp::from_ttl(ttl_ms);
+    }
+
+    pub fn keys(&self, pattern: String) -> Vec<Bytes> {
+        if pattern.as_str() == "*" {
+            self.map.iter().map(|e| e.key().clone()).collect()
+        } else {
+            Vec::new()
+        }
     }
 }
 

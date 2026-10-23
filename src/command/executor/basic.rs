@@ -111,3 +111,13 @@ pub(super) fn execute_config(cmd: &Command, ctx: &Arc<Context>) -> Result<Comman
         bail!("ERR CONFIG command not support {} action", action)
     }
 }
+
+pub(super) fn execute_keys(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut arg_iter = cmd.args.iter();
+    let pattern = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("ERR KEYS command need pattern argument"))?
+        .to_string()?;
+    let keys = ctx.db_ref().keys(pattern);
+    Ok(keys.into())
+}
