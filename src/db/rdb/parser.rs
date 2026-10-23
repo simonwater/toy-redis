@@ -69,7 +69,7 @@ impl<R: Read + Seek> RdbParser<R> {
                 }
                 0xFE => {
                     // 数据库
-                    let db_index = self.parse_length()?.to_length()? as u32;
+                    let db_index = self.parse_length_field()?.to_length()? as u32;
                     evt_handler(RdbItem::DbIndex(db_index as usize))?;
 
                     self.parse_db(&mut evt_handler)?;
@@ -117,8 +117,8 @@ impl<R: Read + Seek> RdbParser<R> {
         let mut flag = [0u8; 1];
         self.reader.read_exact(&mut flag)?;
         if flag[0] == 0xFB {
-            let hash_size = self.parse_length()?.to_length()? as usize;
-            let expire_size = self.parse_length()?.to_length()? as usize;
+            let hash_size = self.parse_length_field()?.to_length()? as usize;
+            let expire_size = self.parse_length_field()?.to_length()? as usize;
             evt_handler(RdbItem::HashTableSize {
                 hash_size,
                 expire_size,
@@ -182,7 +182,7 @@ impl<R: Read + Seek> RdbParser<R> {
         }
     }
 
-    fn parse_length(&mut self) -> Result<LengthField> {
+    fn parse_length_field(&mut self) -> Result<LengthField> {
         let mut buf = [0u8; 1];
         self.reader.read_exact(&mut buf)?;
         let first = buf[0];
@@ -211,7 +211,7 @@ impl<R: Read + Seek> RdbParser<R> {
     fn parse_bytes(&mut self, len: Option<u64>) -> Result<Bytes> {
         let len = match len {
             Some(v) => v,
-            None => self.parse_length()?.to_length()?,
+            None => self.parse_length_field()?.to_length()?,
         };
 
         let mut buf = vec![0u8; len as usize];
@@ -220,7 +220,7 @@ impl<R: Read + Seek> RdbParser<R> {
     }
 
     fn parse_string(&mut self) -> Result<String> {
-        let length = self.parse_length()?;
+        let length = self.parse_length_field()?;
         match length {
             LengthField::Basic(len) => {
                 let bytes = self.parse_bytes(Some(len))?;
