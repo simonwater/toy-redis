@@ -50,7 +50,7 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new() -> Result<Self> {
+    pub fn init() -> Result<Self> {
         let mut args = RedisArgs::parse();
         if args.dir.as_str() == "." {
             args.dir = std::env::current_dir()?

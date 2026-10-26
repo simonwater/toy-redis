@@ -1,3 +1,4 @@
+mod aof;
 mod list;
 mod rdb;
 mod redis_object;
@@ -78,6 +79,7 @@ impl MemoryDB {
     }
 
     pub fn from_context_args(args: &RedisArgs) -> Result<Self> {
+        aof::init_aof_env(args)?;
         if let Some(dbfilename) = args.dbfilename.as_deref() {
             let mut file_path = PathBuf::from(&args.dir);
             file_path.push(dbfilename);
