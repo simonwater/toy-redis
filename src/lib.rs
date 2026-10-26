@@ -1,12 +1,15 @@
+mod aof;
 mod command;
 mod conn;
 mod context;
 pub mod db;
 mod info;
 mod middleware;
+mod rdb;
 mod repl_hub;
 mod resp;
 
+pub use aof::init_aof_env;
 pub use command::{
     Command, CommandResponse, ConnectionState, Transaction, executor as CmdExecutor,
 };
@@ -18,5 +21,6 @@ pub use middleware::{
     CommandPipeline, Middleware, ReplConfMasterMiddleware, ReplConfSlaveMiddleware,
     ReplicaMiddleware, TransMiddleware,
 };
+pub use rdb::{RdbItem, RdbParser, RdbValue};
 pub use repl_hub::{ReplHub, ReplMsg};
 pub use resp::Value;

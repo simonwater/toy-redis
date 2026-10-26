@@ -6,11 +6,12 @@ use std::thread;
 use toy_redis::{
     CommandPipeline, CommandResponse, ConnectionHandler, ConnectionState, Context,
     ReplConfMasterMiddleware, ReplConfSlaveMiddleware, ReplicaMiddleware, Session, TransMiddleware,
-    Value,
+    Value, init_aof_env,
 };
 
 fn main() {
-    let ctx_arc = Arc::new(Context::init().unwrap());
+    let ctx_arc = Arc::new(Context::init().expect("redis context init error"));
+    init_aof_env(&ctx_arc.args_ref()).expect("aof environment init error");
     let port = &ctx_arc.args_ref().port;
     println!("Server is started on port: {}!", port);
 

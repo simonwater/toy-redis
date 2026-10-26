@@ -1,6 +1,4 @@
-mod aof;
 mod list;
-mod rdb;
 mod redis_object;
 mod signal;
 mod stream;
@@ -9,7 +7,6 @@ use anyhow::{Context, Result, anyhow, bail};
 use bytes::Bytes;
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
-use rdb::{RdbItem, RdbParser, RdbValue};
 use redis_object::RedisObject;
 use std::fs::File;
 use std::io::{Read, Seek};
@@ -20,7 +17,7 @@ pub use list::ReList;
 pub(crate) use signal::Signal;
 pub use stream::{ReStream, StreamEntry};
 
-use crate::RedisArgs;
+use crate::{RdbItem, RdbParser, RdbValue, RedisArgs};
 
 pub const DEFAULT_TTL_MILLIS: i64 = 1000 * 60 * 60 * 24; // 一天
 
@@ -79,7 +76,6 @@ impl MemoryDB {
     }
 
     pub fn from_context_args(args: &RedisArgs) -> Result<Self> {
-        aof::init_aof_env(args)?;
         if let Some(dbfilename) = args.dbfilename.as_deref() {
             let mut file_path = PathBuf::from(&args.dir);
             file_path.push(dbfilename);
