@@ -10,7 +10,7 @@ use toy_redis::{
 };
 
 fn main() {
-    let ctx_arc = Arc::new(Context::new());
+    let ctx_arc = Arc::new(Context::new().unwrap());
     let port = &ctx_arc.args_ref().port;
     println!("Server is started on port: {}!", port);
 

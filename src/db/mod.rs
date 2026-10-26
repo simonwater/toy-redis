@@ -78,8 +78,8 @@ impl MemoryDB {
     }
 
     pub fn from_context_args(args: &RedisArgs) -> Result<Self> {
-        if let (Some(dir), Some(dbfilename)) = (args.dir.as_deref(), args.dbfilename.as_deref()) {
-            let mut file_path = PathBuf::from(dir);
+        if let Some(dbfilename) = args.dbfilename.as_deref() {
+            let mut file_path = PathBuf::from(&args.dir);
             file_path.push(dbfilename);
             if !file_path.exists() {
                 bail!("RDB file is not exists. filepath: {}", file_path.display());
