@@ -30,13 +30,13 @@ pub(super) fn execute_set(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandRe
         .to_bulk_bytes()?;
 
     let db = ctx.db_ref();
-    let mut ttl_ms = db::DAY_IN_MILLIS;
+    let mut ttl_ms = db::DEFAULT_TTL_MILLIS;
     if let (Some(f), Some(ttl)) = (arg_iter.next(), arg_iter.next()) {
         if let (Ok(f), Ok(ttl)) = (f.to_string(), ttl.to_integer()) {
             ttl_ms = match f.to_uppercase().as_str() {
                 "EX" => 1000 * ttl,
                 "PX" => ttl,
-                _ => db::DAY_IN_MILLIS,
+                _ => db::DEFAULT_TTL_MILLIS,
             };
         }
     }

@@ -21,7 +21,7 @@ pub use stream::{ReStream, StreamEntry};
 
 use crate::RedisArgs;
 
-pub const DAY_IN_MILLIS: i64 = 1000 * 60 * 60 * 24;
+pub const DEFAULT_TTL_MILLIS: i64 = 1000 * 60 * 60 * 24; // 一天
 
 #[derive(Clone, Copy, Debug)]
 struct ExpirationTimestamp(i64);
@@ -29,7 +29,7 @@ struct ExpirationTimestamp(i64);
 impl ExpirationTimestamp {
     fn from_ttl(mut ttl_ms: i64) -> Self {
         if ttl_ms <= 0 {
-            ttl_ms = DAY_IN_MILLIS;
+            ttl_ms = DEFAULT_TTL_MILLIS;
         }
         let expire_at = Utc::now() + Duration::milliseconds(ttl_ms);
         let expire_timestamp_ms = expire_at.timestamp_millis();
@@ -120,9 +120,17 @@ impl MemoryDB {
                     value,
                     expire_at_ms,
                 } => {
-                    let ttl_ms = expire_at_ms.unwrap_or(0);
+                    let cur_timestamp = Utc::now().timestamp_millis();
+                    let ttl_ms = match expire_at_ms {
+                        Some(expire_timestamp_ms) => (expire_timestamp_ms as i64) - cur_timestamp,
+                        None => DEFAULT_TTL_MILLIS, // 默认过期时间
+                    };
+
+                    if ttl_ms <= 0 {
+                        return Ok(());
+                    }
                     match value {
-                        RdbValue::String(bytes) => db.set_with_ttl(key, bytes, ttl_ms as i64),
+                        RdbValue::String(bytes) => db.set_with_ttl(key, bytes, ttl_ms),
                     }
                 }
                 RdbItem::Checksum(num) => {
@@ -164,7 +172,7 @@ impl MemoryDB {
     }
 
     pub fn set(&self, key: Bytes, bytes: Bytes) {
-        self.set_with_ttl(key, bytes, DAY_IN_MILLIS);
+        self.set_with_ttl(key, bytes, DEFAULT_TTL_MILLIS);
     }
 
     pub fn incr(&self, key: Bytes) -> Result<i64> {
