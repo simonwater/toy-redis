@@ -220,8 +220,8 @@ impl<R: Read + Seek> RdbParser<R> {
     }
 
     fn parse_string(&mut self) -> Result<String> {
-        let length = self.parse_length_field()?;
-        match length {
+        let len_field = self.parse_length_field()?;
+        match len_field {
             LengthField::Basic(len) => {
                 let bytes = self.parse_bytes(Some(len))?;
                 let s = String::from_utf8(bytes.to_vec())?;
