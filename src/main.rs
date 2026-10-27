@@ -4,14 +4,13 @@ use std::net::TcpListener;
 use std::sync::Arc;
 use std::thread;
 use toy_redis::{
-    CommandPipeline, CommandResponse, ConnectionHandler, ConnectionState, Context,
+    AofMiddleware, CommandPipeline, CommandResponse, ConnectionHandler, ConnectionState, Context,
     ReplConfMasterMiddleware, ReplConfSlaveMiddleware, ReplicaMiddleware, Session, TransMiddleware,
-    Value, init_aof_env,
+    Value,
 };
 
 fn main() {
     let ctx_arc = Arc::new(Context::init().expect("redis context init error"));
-    init_aof_env(&ctx_arc.args_ref()).expect("aof environment init error");
     let port = &ctx_arc.args_ref().port;
     println!("Server is started on port: {}!", port);
 
@@ -65,6 +64,7 @@ fn get_command_pipeline() -> CommandPipeline {
     pipeline
         .use_middleware(Box::new(TransMiddleware)) // 事务控制中间件
         .use_middleware(Box::new(ReplicaMiddleware)) // 复本同步中间件
+        .use_middleware(Box::new(AofMiddleware)) // aof存储中间件
         .use_middleware(Box::new(ReplConfMasterMiddleware))
 }
 
@@ -155,5 +155,6 @@ fn get_repl_command_pipeline() -> CommandPipeline {
     let pipeline = CommandPipeline::new();
     pipeline
         .use_middleware(Box::new(TransMiddleware)) // 事务控制中间件
-        .use_middleware(Box::new(ReplConfSlaveMiddleware))
+        .use_middleware(Box::new(ReplConfSlaveMiddleware)) // REPLCONF 命令处理中间件
+        .use_middleware(Box::new(AofMiddleware)) //aof存储中间件
 }

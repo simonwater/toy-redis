@@ -20,7 +20,7 @@ impl Middleware for ReplConfMasterMiddleware {
     }
 }
 
-// 从库
+/// 从库REPLCONF命令处理中间件
 pub struct ReplConfSlaveMiddleware;
 
 impl Middleware for ReplConfSlaveMiddleware {

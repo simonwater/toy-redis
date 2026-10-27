@@ -2,7 +2,7 @@ mod session;
 
 pub use session::Session;
 
-use crate::{Information, MemoryDB, ReplHub};
+use crate::{AofHandler, Information, MemoryDB, ReplHub};
 use anyhow::{Result, anyhow};
 use clap::Parser;
 
@@ -47,6 +47,7 @@ pub struct Context {
     args: RedisArgs,
     info: Information,
     repl_hub: ReplHub,
+    aof_handler: AofHandler,
 }
 
 impl Context {
@@ -68,12 +69,14 @@ impl Context {
                 MemoryDB::new()
             }
         };
+        let aof_handler = AofHandler::new(&args)?;
 
         Ok(Self {
             db,
             args,
             info,
             repl_hub,
+            aof_handler,
         })
     }
 
@@ -91,6 +94,10 @@ impl Context {
 
     pub fn repl_hub(&self) -> &ReplHub {
         &self.repl_hub
+    }
+
+    pub fn aof_handler(&self) -> &AofHandler {
+        &self.aof_handler
     }
 
     pub fn is_master(&self) -> bool {
