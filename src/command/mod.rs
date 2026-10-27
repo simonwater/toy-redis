@@ -31,4 +31,16 @@ impl Command {
             bytes,
         })
     }
+
+    pub fn is_write(&self) -> bool {
+        is_write_command(self)
+    }
+}
+
+fn is_write_command(cmd: &Command) -> bool {
+    match cmd.name.as_str() {
+        "SET" | "INCR" | "RPUSH" | "LPUSH" | "RPOP" | "LPOP" | "BRPOP" | "BLPOP" | "XADD"
+        | "WATCH" | "UNWATCH" | "MULTI" | "EXEC" | "DISCARD" => true,
+        _ => false,
+    }
 }

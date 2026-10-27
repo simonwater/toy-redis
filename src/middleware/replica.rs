@@ -15,15 +15,9 @@ impl Middleware for ReplicaMiddleware {
     ) -> Result<CommandResponse> {
         let result = next(session);
 
-        if ctx.is_master() && !ctx.repl_hub().is_empty() {
-            match cmd.name.as_str() {
-                "SET" | "INCR" | "RPUSH" | "LPUSH" | "RPOP" | "LPOP" | "BRPOP" | "BLPOP"
-                | "XADD" | "WATCH" | "UNWATCH" | "MULTI" | "EXEC" | "DISCARD" => {
-                    let msg = ReplMsg::Propagation(cmd.bytes.clone());
-                    ctx.repl_hub().prop_replmsg(msg)
-                }
-                _ => {}
-            }
+        if ctx.is_master() && !ctx.repl_hub().is_empty() && cmd.is_write() {
+            let msg = ReplMsg::Propagation(cmd.bytes.clone());
+            ctx.repl_hub().prop_replmsg(msg)
         }
 
         result
