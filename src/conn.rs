@@ -29,6 +29,7 @@ impl ConnectionHandler {
         }
     }
 
+    // 如果一个命令的大小超过tmp_buf的大小则此方法会有问题
     pub fn receive_value(&mut self) -> Result<Option<(Value, Bytes)>> {
         if !self.buffer.is_empty() {
             let (input, bytes) = Value::from(&mut self.buffer)?;
@@ -48,7 +49,7 @@ impl ConnectionHandler {
         if let Some((value, bytes)) = self.receive_value()? {
             match value {
                 Value::Arrays(values) => return Ok(Some((values, bytes))),
-                _ => bail!("input command must be resp array."),
+                _ => bail!("value must be resp array."),
             }
         }
         Ok(None)

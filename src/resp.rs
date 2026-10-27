@@ -17,6 +17,7 @@ pub enum Value {
 }
 
 impl Value {
+    // input中需要完整包含一个命令
     pub fn from(input: &mut BytesMut) -> Result<(Value, Bytes)> {
         let mut parser = Parser::new(input);
         let value = parser.parse()?;

@@ -14,9 +14,13 @@ fn main() {
     let port = &ctx_arc.args_ref().port;
     println!("Server is started on port: {}!", port);
 
+    // 主从同步副本启动逻辑
     handle_repl(&ctx_arc).unwrap();
-    let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
+    // aof重放
+    let aof_handler = ctx_arc.aof_handler();
+    aof_handler.replay(&ctx_arc).expect("aof replay error");
 
+    let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
     for stream in listener.incoming() {
         let ctx = ctx_arc.clone();
         println!("accepted new connection");
