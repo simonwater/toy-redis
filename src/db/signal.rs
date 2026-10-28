@@ -19,7 +19,7 @@ impl Signal {
         let mut notified = self.mutex.lock().unwrap();
         while !*notified {
             let now = Utc::now();
-            if now >= deadline {
+            if now > deadline {
                 return false;
             }
 
@@ -30,7 +30,7 @@ impl Signal {
                 .unwrap();
 
             notified = result;
-            if Utc::now() >= deadline {
+            if Utc::now() > deadline {
                 return false;
             }
         }

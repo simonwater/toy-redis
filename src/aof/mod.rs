@@ -68,6 +68,7 @@ impl AofHandler {
     }
 
     fn write_bytes(bytes: Bytes, aof_file: &mut File) -> Result<()> {
+        // 目前不进行缓冲区包装，每次都直接写文件
         aof_file.write_all(&bytes.slice(..))?;
         aof_file.flush()?;
         Ok(())

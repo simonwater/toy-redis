@@ -1,6 +1,5 @@
 use bytes::Bytes;
 use std::collections::VecDeque;
-use std::ops::Add;
 use std::sync::{Mutex, RwLock};
 use std::thread::{self, Thread};
 use std::time::{Duration, Instant};
@@ -123,7 +122,6 @@ impl ReList {
         }
         let start_time = Instant::now(); // 开始计时间
         let total_dur = Duration::from_secs_f64(timeout_in_sec);
-        let expr_at = start_time.add(total_dur);
 
         loop {
             let value = {
@@ -139,7 +137,7 @@ impl ReList {
             }
 
             let pasted_dur = Instant::now() - start_time;
-            if pasted_dur >= total_dur {
+            if pasted_dur > total_dur {
                 return None;
             }
 
@@ -149,9 +147,6 @@ impl ReList {
                 .push_back(thread::current());
 
             thread::park_timeout(total_dur - pasted_dur); // 等待被唤起
-            if Instant::now() >= expr_at {
-                return None;
-            }
         }
     }
 }
