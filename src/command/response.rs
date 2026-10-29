@@ -10,6 +10,7 @@ pub enum ConnectionState {
     TakenOver,
 }
 
+/// 将命令的执行和返回结果的逻辑解藕，命令执行过程只关心业务逻辑
 pub enum CommandResponse {
     RespValue(Value),
     ReplConf(Value), // 副本响应主服务replconf命令时返回的结果

@@ -3,6 +3,7 @@ use crate::info::SectionType;
 use crate::{Command, Context, Value, db};
 use anyhow::{Result, anyhow, bail};
 use bytes::Bytes;
+use rspression::{DefaultEnvironment, Environment, RspRunner, Value as FmlValue};
 use std::sync::Arc;
 
 pub(super) fn execute_ping(_cmd: &Command) -> Result<CommandResponse> {
@@ -120,4 +121,26 @@ pub(super) fn execute_keys(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandR
         .to_string()?;
     let keys = ctx.db_ref().keys(pattern);
     Ok(keys.into())
+}
+
+pub(super) fn execute_fml(_cmd: &Command, _ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut srcs = Vec::new();
+    srcs.push("x = a + b * c");
+    srcs.push("b = a * 2");
+    srcs.push("a = m + n");
+    srcs.push("c = n + w + b");
+
+    let mut runner = RspRunner::new();
+    let mut env = DefaultEnvironment::new();
+    env.put("m".into(), FmlValue::Integer(2));
+    env.put("n".into(), FmlValue::Integer(4));
+    env.put("w".into(), FmlValue::Integer(6));
+
+    runner.execute_multiple_with_env(&srcs, &mut env)?;
+    println!("x = {}", env.get("x").unwrap()); // x = 270
+    println!("a = {}", env.get("a").unwrap()); // a = 6
+    println!("b = {}", env.get("b").unwrap()); // b = 12
+    println!("c = {}", env.get("c").unwrap()); // c = 22
+
+    return Ok("OK".into());
 }

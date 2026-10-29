@@ -32,6 +32,7 @@ pub fn execute(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
         "XREAD" => stream::execute_xread(cmd, ctx),
         "PSYNC" => repl_sync::execute_psync(cmd, ctx),
         "WAIT" => repl_sync::execute_wait(cmd, ctx),
+        "FML" => basic::execute_fml(cmd, ctx),
         _ => bail!("unsupported command!"),
     }
 }
