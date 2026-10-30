@@ -5,7 +5,7 @@ use std::{
     thread,
 };
 
-use crate::{CmdExecutor, Command, Context, RedisArgs, Value};
+use crate::{CmdExecutor, Command, Context, RedisArgs, Session, Value};
 use anyhow::{Result, bail};
 use bytes::{Bytes, BytesMut};
 use std::sync::Arc;
@@ -132,6 +132,7 @@ impl AofHandler {
             let mut aof_file = OpenOptions::new().read(true).open(file_path)?;
             let mut buffer = BytesMut::with_capacity(4096);
             let mut tmp_buf = [0u8; 1024];
+            let mut session = Session::new();
             loop {
                 let read_cnt = aof_file.read(&mut tmp_buf)?;
                 if read_cnt > 0 {
@@ -146,7 +147,7 @@ impl AofHandler {
                     Value::Arrays(values) => {
                         let command = Command::new(values, bytes)?;
                         // 直接执行，无需处理响应
-                        let _response = CmdExecutor::execute(&command, ctx)?;
+                        let _response = CmdExecutor::execute(&command, ctx, &mut session)?;
                     }
                     _ => bail!("command value must be resp array."),
                 }

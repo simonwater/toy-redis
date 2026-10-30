@@ -28,7 +28,7 @@ fn main() {
             Ok(stream) => {
                 thread::spawn(move || {
                     let conn = ConnectionHandler::from_tcp_stream(stream);
-                    let session = Session::new(conn);
+                    let session = Session::new().with_transaction().with_connection(conn);
                     if let Err(e) = handle_connection(ctx, session) {
                         eprintln!("err: {:?}", e);
                     }
@@ -44,7 +44,7 @@ fn main() {
 fn handle_connection(ctx: Arc<Context>, mut session: Session) -> Result<()> {
     let cmd_pipeline = get_command_pipeline();
     // 读取命令
-    while let Some(command) = session.connection_mut().receive_command()? {
+    while let Some(command) = session.connection_mut()?.receive_command()? {
         // 执行命令
         let response = match cmd_pipeline.execute(&command, &ctx, &mut session) {
             Ok(res) => res,
@@ -116,7 +116,7 @@ fn handle_repl(ctx: &Arc<Context>) -> Result<()> {
         thread::spawn(move || {
             let mut repl_pipeline = get_repl_command_pipeline();
             conn.reset_cmd_total_bytes();
-            let mut session = Session::new(conn);
+            let mut session = Session::new().with_transaction().with_connection(conn);
             // 增量命令
             loop {
                 match handle_repl_command(&mut repl_pipeline, &ctx, session) {
@@ -137,7 +137,7 @@ fn handle_repl_command(
     ctx: &Arc<Context>,
     mut session: Session,
 ) -> Result<Session> {
-    let conn = session.connection_mut();
+    let conn = session.connection_mut()?;
     if let Some(command) = conn.receive_command_with_stat()? {
         let response = pipeline.execute(&command, &ctx, &mut session)?;
         if matches!(response, CommandResponse::ReplConf(_)) {

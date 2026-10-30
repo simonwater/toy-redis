@@ -10,7 +10,7 @@ use std::sync::Arc;
 pub use aof::AofMiddleware;
 pub use repl_conf::{ReplConfMasterMiddleware, ReplConfSlaveMiddleware};
 pub use replica::ReplicaMiddleware;
-pub use trans::TransMiddleware;
+pub use trans::{TransMiddleware, Transaction};
 
 /// 对于所有命令都通用的判断/处理逻辑、以及需要session中的事务、连接等服务等复杂命令可以封装成中间件
 /// 命令处理器只关注简单请求级的业务逻辑
@@ -62,7 +62,7 @@ impl CommandPipeline {
                 self.execute_at(cmd, index + 1, ctx, session)
             })
         } else {
-            CmdExecutor::execute(cmd, ctx)
+            CmdExecutor::execute(cmd, ctx, session)
         }
     }
 }

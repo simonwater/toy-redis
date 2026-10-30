@@ -1,5 +1,4 @@
-use super::executor as CmdExecutor;
-use crate::{Command, CommandResponse, Context, Value};
+use crate::{CmdExecutor, Command, CommandResponse, Context, Session, Value};
 use anyhow::bail;
 use anyhow::{Result, anyhow};
 use bytes::Bytes;
@@ -40,32 +39,6 @@ impl Transaction {
         Ok("OK".into())
     }
 
-    pub(crate) fn exec(&mut self, ctx: &Arc<Context>) -> Result<CommandResponse> {
-        let commands = self
-            .commands
-            .take()
-            .ok_or_else(|| anyhow!("ERR EXEC without MULTI"))?;
-        let mut res: Vec<Value> = Vec::with_capacity(commands.len());
-
-        if Self::check_dirty(ctx, self.watchs.take()) {
-            return Ok(Value::NullArrays.into());
-        }
-        for cmd in commands.into_iter() {
-            let cmd_res = match CmdExecutor::execute(&cmd, ctx) {
-                Ok(response) => match response {
-                    CommandResponse::RespValue(value) => value,
-                    _ => {
-                        Value::SimpleErrors(format!("can not execute this command in transaction."))
-                    }
-                },
-                Err(e) => Value::SimpleErrors(format!("{}", e)),
-            };
-            res.push(cmd_res);
-        }
-
-        Ok(res.into())
-    }
-
     pub(crate) fn discard(&mut self) -> Result<CommandResponse> {
         self.commands
             .take()
@@ -96,17 +69,42 @@ impl Transaction {
         self.watchs.take();
         Ok("OK".into())
     }
+}
 
-    fn check_dirty(ctx: &Arc<Context>, watchs: Option<HashMap<Bytes, u64>>) -> bool {
-        if let Some(watchs) = watchs.as_ref() {
-            let db = ctx.db_ref();
-            for (key, &ver) in watchs.iter() {
-                let db_ver = db.get_version(&key).unwrap_or(0);
-                if ver != db_ver {
-                    return true;
-                }
+pub(crate) fn exec_trans(session: &mut Session, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let trans = session.trans_mut()?;
+    let commands = trans
+        .commands
+        .take()
+        .ok_or_else(|| anyhow!("ERR EXEC without MULTI"))?;
+    let mut res: Vec<Value> = Vec::with_capacity(commands.len());
+
+    if check_dirty(ctx, trans.watchs.take()) {
+        return Ok(Value::NullArrays.into());
+    }
+    for cmd in commands.into_iter() {
+        let cmd_res = match CmdExecutor::execute(&cmd, ctx, session) {
+            Ok(response) => match response {
+                CommandResponse::RespValue(value) => value,
+                _ => Value::SimpleErrors(format!("can not execute this command in transaction.")),
+            },
+            Err(e) => Value::SimpleErrors(format!("{}", e)),
+        };
+        res.push(cmd_res);
+    }
+
+    Ok(res.into())
+}
+
+fn check_dirty(ctx: &Arc<Context>, watchs: Option<HashMap<Bytes, u64>>) -> bool {
+    if let Some(watchs) = watchs.as_ref() {
+        let db = ctx.db_ref();
+        for (key, &ver) in watchs.iter() {
+            let db_ver = db.get_version(&key).unwrap_or(0);
+            if ver != db_ver {
+                return true;
             }
         }
-        false
     }
+    false
 }

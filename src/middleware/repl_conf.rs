@@ -39,7 +39,7 @@ impl Middleware for ReplConfSlaveMiddleware {
             let arg1 = value.to_string()?;
             match arg1.as_str() {
                 "GETACK" => {
-                    let total_cmd_bytes = session.connection_ref().get_cmd_total_bytes();
+                    let total_cmd_bytes = session.connection_ref()?.get_cmd_total_bytes();
                     let ack_res = total_cmd_bytes - cmd.bytes.len();
                     let values: Vec<Value> = vec![
                         Value::BulkStrings("REPLCONF".into()),

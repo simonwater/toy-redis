@@ -28,7 +28,7 @@ pub enum CommandResponse {
 
 impl CommandResponse {
     pub fn run(self, ctx: &Arc<Context>, mut session: Session) -> Result<ConnectionState> {
-        let conn = session.connection_mut();
+        let conn = session.connection_mut()?;
         match self {
             Self::RespValue(value) | Self::ReplConf(value) => {
                 conn.write_all(&value.to_bytes())?;

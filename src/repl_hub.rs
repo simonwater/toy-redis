@@ -32,7 +32,9 @@ impl ReplHub {
         let (sender, receiver) = mpsc::channel();
         self.repl_senders.write().unwrap().push(sender);
         thread::spawn(move || {
-            let conn = session.connection_mut();
+            let conn = session
+                .connection_mut()
+                .expect("can not get the connection");
             loop {
                 match receiver.recv() {
                     Ok(cmd) => match cmd {

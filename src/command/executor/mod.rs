@@ -5,11 +5,15 @@ mod repl_sync;
 mod stream;
 
 use super::{Command, response::CommandResponse};
-use crate::Context;
+use crate::{Context, Session};
 use anyhow::{Result, bail};
 use std::sync::Arc;
 
-pub fn execute(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+pub fn execute(
+    cmd: &Command,
+    ctx: &Arc<Context>,
+    session: &mut Session,
+) -> Result<CommandResponse> {
     match cmd.name.as_str() {
         "PING" => basic::execute_ping(cmd),
         "ECHO" => basic::execute_echo(cmd),
@@ -34,7 +38,7 @@ pub fn execute(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
         "PSYNC" => repl_sync::execute_psync(cmd, ctx),
         "WAIT" => repl_sync::execute_wait(cmd, ctx),
         "FML" => basic::execute_fml(cmd, ctx),
-        "SUBSCRIBE" => pub_sub::execute_subscribe(cmd, ctx),
+        "SUBSCRIBE" => pub_sub::execute_subscribe(cmd, ctx, session),
         _ => bail!("unsupported command!"),
     }
 }
