@@ -1,5 +1,6 @@
 mod basic;
 mod list;
+mod pub_sub;
 mod repl_sync;
 mod stream;
 
@@ -33,6 +34,7 @@ pub fn execute(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
         "PSYNC" => repl_sync::execute_psync(cmd, ctx),
         "WAIT" => repl_sync::execute_wait(cmd, ctx),
         "FML" => basic::execute_fml(cmd, ctx),
+        "SUBSCRIBE" => pub_sub::execute_subscribe(cmd, ctx),
         _ => bail!("unsupported command!"),
     }
 }

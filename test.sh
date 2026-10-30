@@ -26,6 +26,8 @@ STAGES=(
   "zg5" "jz6" "gc6" "jw4" "dq3" "sm4"
   # AOF Persistence
   "uj3" "vd9" "fm0" "dw4" "pb9" "dc8" "fi1" "ep6" "xz2" "kn2"
+  # Pub/Sub
+  "mx3" "zc8" "aw8" "lf1" "hf2" "dn4" "ze9"
 )
 
 TARGET_SLUG=$1
