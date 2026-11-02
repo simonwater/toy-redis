@@ -12,9 +12,11 @@ pub fn start(ctx: &Arc<Context>) -> Result<()> {
     let args = ctx.args_ref();
     if let Some(addr) = args.replicaof.as_deref() {
         let mut conn = ConnectionHandler::new(addr.replace(" ", ":"))?;
+        // 握手
         hand_shake(ctx, &mut conn)?;
+        // 同步
         psync(ctx, &mut conn)?;
-
+        // 启动后台线程时实同步
         let ctx = ctx.clone();
         thread::spawn(move || {
             let mut repl_pipeline = repl_pipeline();

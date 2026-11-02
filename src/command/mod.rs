@@ -1,9 +1,6 @@
 pub mod executor;
 
-mod response;
-
 use bytes::Bytes;
-pub use response::{CommandResponse, ConnectionState};
 
 use crate::Value;
 use anyhow::{Result, anyhow, bail};

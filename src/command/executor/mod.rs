@@ -4,8 +4,7 @@ mod pub_sub;
 mod repl_sync;
 mod stream;
 
-use super::{Command, response::CommandResponse};
-use crate::{Context, Session};
+use crate::{Command, CommandResponse, Context, Session};
 use anyhow::{Result, bail};
 use std::sync::Arc;
 
