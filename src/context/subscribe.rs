@@ -2,11 +2,11 @@ use std::collections::HashSet;
 
 use bytes::Bytes;
 
-pub struct Subscribe {
+pub struct Subscription {
     chennals: HashSet<Bytes>,
 }
 
-impl Subscribe {
+impl Subscription {
     pub fn new() -> Self {
         Self {
             chennals: HashSet::with_capacity(8),

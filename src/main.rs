@@ -30,7 +30,7 @@ fn main() {
                     let conn = ConnectionHandler::from_tcp_stream(stream);
                     let session = Session::new()
                         .with_transaction()
-                        .with_subscribe()
+                        .with_subscription()
                         .with_connection(conn);
                     if let Err(e) = handle_connection(ctx, session) {
                         eprintln!("err: {:?}", e);

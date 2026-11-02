@@ -1,12 +1,12 @@
 use anyhow::{Result, anyhow};
 
-use crate::{ConnectionHandler, Transaction, context::subscribe::Subscribe};
+use crate::{ConnectionHandler, Transaction, context::subscribe::Subscription};
 
 /// 客户端状态
 pub struct Session {
     trans: Option<Transaction>,
     conn: Option<ConnectionHandler>,
-    subscribe: Option<Subscribe>,
+    subscribe: Option<Subscription>,
 }
 
 impl Session {
@@ -28,8 +28,8 @@ impl Session {
         self
     }
 
-    pub fn with_subscribe(mut self) -> Self {
-        self.subscribe = Some(Subscribe::new());
+    pub fn with_subscription(mut self) -> Self {
+        self.subscribe = Some(Subscription::new());
         self
     }
 
@@ -57,19 +57,19 @@ impl Session {
             .ok_or_else(|| anyhow!("connection is not init in current session."))
     }
 
-    pub fn subscribe_ref(&self) -> Result<&Subscribe> {
+    pub fn subscription_ref(&self) -> Result<&Subscription> {
         self.subscribe
             .as_ref()
-            .ok_or_else(|| anyhow!("subscribe is not init in current session."))
+            .ok_or_else(|| anyhow!("subscription is not init in current session."))
     }
 
-    pub fn subscribe_mut(&mut self) -> Result<&mut Subscribe> {
+    pub fn subscription_mut(&mut self) -> Result<&mut Subscription> {
         self.subscribe
             .as_mut()
-            .ok_or_else(|| anyhow!("subscribe is not init in current session."))
+            .ok_or_else(|| anyhow!("subscription is not init in current session."))
     }
 
-    pub fn is_subscribe_mode(&self) -> bool {
+    pub fn is_subscribed_mode(&self) -> bool {
         self.subscribe
             .as_ref()
             .map(|s| !s.is_empty())
