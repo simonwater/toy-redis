@@ -15,7 +15,7 @@ pub fn execute(
     session: &mut Session,
 ) -> Result<CommandResponse> {
     match cmd.name.as_str() {
-        "PING" => basic::execute_ping(cmd),
+        "PING" => basic::execute_ping(cmd, session),
         "ECHO" => basic::execute_echo(cmd),
         "INFO" => basic::execute_info(cmd, ctx),
         "GET" => basic::execute_get(cmd, ctx),

@@ -1,13 +1,21 @@
 use super::CommandResponse;
 use crate::info::SectionType;
-use crate::{Command, Context, Value, db};
+use crate::{Command, Context, Session, Value, db};
 use anyhow::{Result, anyhow, bail};
 use bytes::Bytes;
 use rspression::{DefaultEnvironment, Environment, RspRunner, Value as FmlValue};
 use std::sync::Arc;
 
-pub(super) fn execute_ping(_cmd: &Command) -> Result<CommandResponse> {
-    Ok("PONG".into())
+pub(super) fn execute_ping(_cmd: &Command, session: &Session) -> Result<CommandResponse> {
+    if session.is_subscribe_mode() {
+        let vals: Vec<Value> = vec![
+            Bytes::from_static(b"pong").into(),
+            Bytes::from_static(b"").into(),
+        ];
+        Ok(vals.into())
+    } else {
+        Ok("PONG".into())
+    }
 }
 
 pub(super) fn execute_echo(cmd: &Command) -> Result<CommandResponse> {

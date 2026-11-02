@@ -14,7 +14,7 @@ impl Middleware for SubscribeMiddleware {
         session: &mut Session,
         next: &dyn Fn(&mut Session) -> Result<CommandResponse>,
     ) -> Result<CommandResponse> {
-        if session.subscribe_ref()?.is_empty() || match_sub_command(&cmd.name) {
+        if !session.is_subscribe_mode() || match_sub_command(&cmd.name) {
             next(session)
         } else {
             bail!(

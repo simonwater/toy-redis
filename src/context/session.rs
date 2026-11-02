@@ -68,4 +68,11 @@ impl Session {
             .as_mut()
             .ok_or_else(|| anyhow!("subscribe is not init in current session."))
     }
+
+    pub fn is_subscribe_mode(&self) -> bool {
+        self.subscribe
+            .as_ref()
+            .map(|s| !s.is_empty())
+            .unwrap_or(false)
+    }
 }
