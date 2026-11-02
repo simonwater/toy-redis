@@ -39,6 +39,7 @@ pub fn execute(
         "WAIT" => repl_sync::execute_wait(cmd, ctx),
         "FML" => basic::execute_fml(cmd, ctx),
         "SUBSCRIBE" => pub_sub::execute_subscribe(cmd, ctx, session),
+        "PUBLISH" => pub_sub::execute_publish(cmd, ctx, session),
         _ => bail!("unsupported command!"),
     }
 }

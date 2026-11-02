@@ -2,7 +2,7 @@ mod session;
 
 pub use session::Session;
 
-use crate::{AofHandler, Information, MemoryDB, ReplHub};
+use crate::{AofHandler, Information, MemoryDB, ReplHub, SubscriberHub};
 use anyhow::{Result, anyhow};
 use clap::Parser;
 
@@ -48,6 +48,7 @@ pub struct Context {
     info: Information,
     repl_hub: ReplHub,
     aof_handler: AofHandler,
+    subcriber_hub: SubscriberHub,
 }
 
 impl Context {
@@ -70,6 +71,7 @@ impl Context {
             }
         };
         let aof_handler = AofHandler::new(&args)?;
+        let subcriber_hub = SubscriberHub::new();
 
         Ok(Self {
             db,
@@ -77,6 +79,7 @@ impl Context {
             info,
             repl_hub,
             aof_handler,
+            subcriber_hub,
         })
     }
 
@@ -98,6 +101,10 @@ impl Context {
 
     pub fn aof_handler(&self) -> &AofHandler {
         &self.aof_handler
+    }
+
+    pub fn subcriber_hub(&self) -> &SubscriberHub {
+        &self.subcriber_hub
     }
 
     pub fn is_master(&self) -> bool {

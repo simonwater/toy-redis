@@ -12,7 +12,7 @@ pub(super) fn execute_psync(_cmd: &Command, ctx: &Arc<Context>) -> Result<Comman
     let s: String = format!("FULLRESYNC {} 0", master_id);
     let stream = empty_rdb();
     let len = stream.len();
-    let response = CommandResponse::Replication {
+    let response = CommandResponse::ReplSync {
         init_value: s.into(),
         stream: Box::new(Cursor::new(stream)),
         len,

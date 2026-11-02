@@ -13,13 +13,8 @@ pub enum ConnectionState {
 /// 将命令的执行和返回结果的逻辑解藕，命令执行过程只关心业务逻辑
 pub enum CommandResponse {
     RespValue(Value),
-    ReplConf(Value), // 副本响应主服务replconf命令时返回的结果
-    Stream {
-        init_value: Value,
-        stream: Box<dyn Read>,
-        len: usize,
-    },
-    Replication {
+    ReplConf(Value), // 副本响应主服务replconf命令时返回的结果，区别于RespValue，副本同步时返回RespValue不给主服务响应
+    ReplSync {
         init_value: Value,
         stream: Box<dyn Read>,
         len: usize,
@@ -34,18 +29,7 @@ impl CommandResponse {
                 conn.write_all(&value.to_bytes())?;
                 Ok(ConnectionState::KeepAlive(session))
             }
-            Self::Stream {
-                init_value,
-                mut stream,
-                len,
-            } => {
-                conn.write_all(&init_value.to_bytes())?;
-                let head = format!("${}\r\n", len);
-                conn.write_all(head.as_bytes())?;
-                std::io::copy(&mut stream, conn.get_stream())?;
-                Ok(ConnectionState::TakenOver)
-            }
-            Self::Replication {
+            Self::ReplSync {
                 init_value,
                 mut stream,
                 len,
