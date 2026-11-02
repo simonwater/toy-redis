@@ -12,39 +12,9 @@ pub fn start(ctx: &Arc<Context>) -> Result<()> {
     let args = ctx.args_ref();
     if let Some(addr) = args.replicaof.as_deref() {
         let mut conn = ConnectionHandler::new(addr.replace(" ", ":"))?;
+        hand_shake(ctx, &mut conn)?;
+        psync(ctx, &mut conn)?;
 
-        // ping
-        let cmd = Value::BulkStrings("PING".into());
-        let (value, _) = conn.request(cmd)?.unwrap();
-        assert_eq!(value, Value::SimpleStrings("PONG".into()));
-
-        // replconf 1
-        let cmd = vec![
-            Value::BulkStrings("REPLCONF".into()),
-            Value::BulkStrings("listening-port".into()),
-            Value::BulkStrings(Bytes::from(args.port.clone())),
-        ];
-        let (value, _) = conn.request(Value::Arrays(cmd))?.unwrap();
-        assert_eq!(value, Value::SimpleStrings("OK".into()));
-
-        // replconf 2
-        let cmd = vec![
-            Value::BulkStrings("REPLCONF".into()),
-            Value::BulkStrings("capa".into()),
-            Value::BulkStrings("psync2".into()),
-        ];
-        let (value, _) = conn.request(Value::Arrays(cmd))?.unwrap();
-        assert_eq!(value, Value::SimpleStrings("OK".into()));
-
-        // psync
-        let cmd = vec![
-            Value::BulkStrings("PSYNC".into()),
-            Value::BulkStrings("?".into()),
-            Value::BulkStrings("-1".into()),
-        ];
-        let _init_msg = conn.send(Value::Arrays(cmd))?;
-        let _init_value = conn.receive_value()?;
-        let _rdb_stream = conn.receive_value()?;
         let ctx = ctx.clone();
         thread::spawn(move || {
             let mut repl_pipeline = repl_pipeline();
@@ -62,6 +32,46 @@ pub fn start(ctx: &Arc<Context>) -> Result<()> {
             }
         });
     }
+    Ok(())
+}
+
+fn hand_shake(ctx: &Arc<Context>, conn: &mut ConnectionHandler) -> Result<()> {
+    // ping
+    let cmd = Value::BulkStrings("PING".into());
+    let (value, _) = conn.request(cmd)?.unwrap();
+    assert_eq!(value, Value::SimpleStrings("PONG".into()));
+
+    // replconf 1
+    let cmd = vec![
+        Value::BulkStrings("REPLCONF".into()),
+        Value::BulkStrings("listening-port".into()),
+        Value::BulkStrings(Bytes::from(ctx.args_ref().port.clone())),
+    ];
+    let (value, _) = conn.request(Value::Arrays(cmd))?.unwrap();
+    assert_eq!(value, Value::SimpleStrings("OK".into()));
+
+    // replconf 2
+    let cmd = vec![
+        Value::BulkStrings("REPLCONF".into()),
+        Value::BulkStrings("capa".into()),
+        Value::BulkStrings("psync2".into()),
+    ];
+    let (value, _) = conn.request(Value::Arrays(cmd))?.unwrap();
+    assert_eq!(value, Value::SimpleStrings("OK".into()));
+
+    Ok(())
+}
+
+fn psync(_ctx: &Arc<Context>, conn: &mut ConnectionHandler) -> Result<()> {
+    // psync
+    let cmd = vec![
+        Value::BulkStrings("PSYNC".into()),
+        Value::BulkStrings("?".into()),
+        Value::BulkStrings("-1".into()),
+    ];
+    let _init_msg = conn.send(Value::Arrays(cmd))?;
+    let _init_value = conn.receive_value()?;
+    let _rdb_stream = conn.receive_value()?;
     Ok(())
 }
 
