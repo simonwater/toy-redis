@@ -12,7 +12,7 @@ mod subscribe;
 
 pub use aof::AofHandler;
 pub use command::{Command, CommandResponse, ConnectionState, executor as CmdExecutor};
-pub use conn::ConnectionHandler;
+pub use conn::{ConnectionHandler, main_starter, repl_starter};
 pub use context::{Context, RedisArgs, Session};
 pub use db::MemoryDB;
 pub use info::Information;
