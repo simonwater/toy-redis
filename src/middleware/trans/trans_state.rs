@@ -85,7 +85,7 @@ pub(crate) fn exec_trans(session: &mut Session, ctx: &Arc<Context>) -> Result<Co
     for cmd in commands.into_iter() {
         let cmd_res = match CmdExecutor::execute(&cmd, ctx, session) {
             Ok(response) => match response {
-                CommandResponse::RespValue(value) => value,
+                CommandResponse::Standard(value) => value,
                 _ => Value::SimpleErrors(format!("can not execute this command in transaction.")),
             },
             Err(e) => Value::SimpleErrors(format!("{}", e)),

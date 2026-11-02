@@ -14,7 +14,7 @@ pub use replica::ReplicaMiddleware;
 pub use subscribe::SubscribeMiddleware;
 pub use trans::{TransMiddleware, Transaction};
 
-/// 对于所有命令都通用的判断/处理逻辑、以及需要session中的事务、连接等服务等复杂命令可以封装成中间件
+/// 对于所有命令都通用的判断/处理逻辑，可以封装成中间件统一管理，通过洋葱模型解藕横切关注点与外围生命周期。
 /// 命令处理器只关注简单请求级的业务逻辑
 pub trait Middleware {
     fn handle(

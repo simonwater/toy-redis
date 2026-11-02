@@ -27,7 +27,7 @@ pub fn start(ctx: Arc<Context>, conn: ConnectionHandler) -> Result<()> {
         // 回写响应
         match response.run(&ctx, session)? {
             ConnectionState::KeepAlive(keep_session) => session = keep_session,
-            ConnectionState::TakenOver => break,
+            ConnectionState::Close => break,
         }
     }
     Ok(())
