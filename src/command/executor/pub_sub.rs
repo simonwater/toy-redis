@@ -14,8 +14,9 @@ pub(super) fn execute_subscribe(
         .next()
         .ok_or_else(|| anyhow!("subscribe command missing chennal argument!"))?
         .to_bulk_bytes()?;
-    session.add_chennal(chennal.clone());
-    let cnt = session.chennal_count();
+    let subs = session.subscribe_mut()?;
+    subs.add_chennal(chennal.clone());
+    let cnt = subs.len();
     let result = vec![
         Bytes::from_static(b"subscribe").into(),
         chennal.into(),

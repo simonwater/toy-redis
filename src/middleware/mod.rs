@@ -1,6 +1,7 @@
 mod aof;
 mod repl_conf;
 mod replica;
+mod subscribe;
 mod trans;
 
 use crate::{CmdExecutor, Command, CommandResponse, Context, context::Session};
@@ -10,6 +11,7 @@ use std::sync::Arc;
 pub use aof::AofMiddleware;
 pub use repl_conf::{ReplConfMasterMiddleware, ReplConfSlaveMiddleware};
 pub use replica::ReplicaMiddleware;
+pub use subscribe::SubscribeMiddleware;
 pub use trans::{TransMiddleware, Transaction};
 
 /// 对于所有命令都通用的判断/处理逻辑、以及需要session中的事务、连接等服务等复杂命令可以封装成中间件

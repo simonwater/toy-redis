@@ -5,8 +5,8 @@ use std::sync::Arc;
 use std::thread;
 use toy_redis::{
     AofMiddleware, CommandPipeline, CommandResponse, ConnectionHandler, ConnectionState, Context,
-    ReplConfMasterMiddleware, ReplConfSlaveMiddleware, ReplicaMiddleware, Session, TransMiddleware,
-    Value,
+    ReplConfMasterMiddleware, ReplConfSlaveMiddleware, ReplicaMiddleware, Session,
+    SubscribeMiddleware, TransMiddleware, Value,
 };
 
 fn main() {
@@ -28,7 +28,10 @@ fn main() {
             Ok(stream) => {
                 thread::spawn(move || {
                     let conn = ConnectionHandler::from_tcp_stream(stream);
-                    let session = Session::new().with_transaction().with_connection(conn);
+                    let session = Session::new()
+                        .with_transaction()
+                        .with_subscribe()
+                        .with_connection(conn);
                     if let Err(e) = handle_connection(ctx, session) {
                         eprintln!("err: {:?}", e);
                     }
@@ -66,6 +69,7 @@ fn handle_connection(ctx: Arc<Context>, mut session: Session) -> Result<()> {
 fn get_command_pipeline() -> CommandPipeline {
     let pipeline = CommandPipeline::new();
     pipeline
+        .use_middleware(Box::new(SubscribeMiddleware)) // subscribed 模式控制中间件
         .use_middleware(Box::new(TransMiddleware)) // 事务控制中间件
         .use_middleware(Box::new(ReplicaMiddleware)) // 复本同步中间件
         .use_middleware(Box::new(AofMiddleware)) // aof存储中间件

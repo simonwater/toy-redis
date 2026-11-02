@@ -17,7 +17,7 @@ pub use db::MemoryDB;
 pub use info::Information;
 pub use middleware::{
     AofMiddleware, CommandPipeline, Middleware, ReplConfMasterMiddleware, ReplConfSlaveMiddleware,
-    ReplicaMiddleware, TransMiddleware, Transaction,
+    ReplicaMiddleware, SubscribeMiddleware, TransMiddleware, Transaction,
 };
 pub use rdb::{RdbItem, RdbParser, RdbValue};
 pub use repl_hub::{ReplHub, ReplMsg};
