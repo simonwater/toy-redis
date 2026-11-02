@@ -8,6 +8,7 @@ mod middleware;
 mod rdb;
 mod repl_hub;
 mod resp;
+mod subscribe;
 
 pub use aof::AofHandler;
 pub use command::{Command, CommandResponse, ConnectionState, executor as CmdExecutor};
@@ -22,3 +23,4 @@ pub use middleware::{
 pub use rdb::{RdbItem, RdbParser, RdbValue};
 pub use repl_hub::{ReplHub, ReplMsg};
 pub use resp::Value;
+pub use subscribe::{SubscriberHub, Subscription};

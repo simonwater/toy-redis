@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use bytes::Bytes;
 
+/// 客户端的订阅
 pub struct Subscription {
     chennals: HashSet<Bytes>,
 }
@@ -25,3 +26,5 @@ impl Subscription {
         self.chennals.is_empty()
     }
 }
+
+pub struct SubscriberHub {}

@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
 
-use crate::{ConnectionHandler, Transaction, context::subscribe::Subscription};
+use crate::{ConnectionHandler, Subscription, Transaction};
 
 /// 客户端状态
 pub struct Session {

@@ -1,5 +1,4 @@
 mod session;
-mod subscribe;
 
 pub use session::Session;
 
