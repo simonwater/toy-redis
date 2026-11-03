@@ -1,4 +1,10 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::HashSet,
+    sync::{
+        Arc,
+        mpsc::{self, Receiver, Sender},
+    },
+};
 
 use bytes::Bytes;
 use dashmap::DashMap;
@@ -17,10 +23,12 @@ impl Subscription {
         }
     }
 
-    pub fn add_chennal(&mut self, name: Bytes, ctx: &Arc<Context>) {
+    pub fn subscirbe(&mut self, name: Bytes, ctx: &Arc<Context>) -> Option<Receiver<Bytes>> {
         if self.chennals.insert(name.clone()) {
-            ctx.subcriber_hub().add_client(name);
+            let rx = ctx.chennals_hub().subscribe(name);
+            return Some(rx);
         }
+        None
     }
 
     pub fn len(&self) -> usize {
@@ -32,25 +40,40 @@ impl Subscription {
     }
 }
 
-pub struct SubscriberHub {
-    subscribers: DashMap<Bytes, usize>,
+pub struct ChennalsHub {
+    chennals: DashMap<Bytes, Vec<Sender<Bytes>>>,
 }
 
-impl SubscriberHub {
+impl ChennalsHub {
     pub fn new() -> Self {
         Self {
-            subscribers: DashMap::with_capacity(16),
+            chennals: DashMap::with_capacity(16),
         }
     }
 
-    pub fn add_client(&self, chennal: Bytes) {
-        let mut v = self.subscribers.entry(chennal).or_insert(0);
-        *v += 1;
+    pub fn subscribe(&self, chennal: Bytes) -> Receiver<Bytes> {
+        let (tx, rx) = mpsc::channel();
+
+        let mut subs = self
+            .chennals
+            .entry(chennal)
+            .or_insert_with(|| Vec::with_capacity(16));
+        subs.push(tx);
+        rx
     }
 
-    pub fn client_cnt(&self, chennal: Bytes) -> usize {
-        match self.subscribers.get(&chennal) {
-            Some(v) => *v.value(),
+    pub fn publish(&self, chennal: Bytes, msg: Bytes) -> usize {
+        if let Some(mut e) = self.chennals.get_mut(&chennal) {
+            let subs = e.value_mut();
+            subs.retain(|tx| tx.send(msg.clone()).is_ok());
+            return subs.len();
+        }
+        0
+    }
+
+    pub fn subscriber_len(&self, chennal: Bytes) -> usize {
+        match self.chennals.get(&chennal) {
+            Some(v) => v.value().len(),
             _ => 0,
         }
     }

@@ -2,8 +2,7 @@ use anyhow::Result;
 
 use crate::{
     AofMiddleware, CommandPipeline, ConnectionHandler, ConnectionState, Context,
-    ReplConfMasterMiddleware, ReplicaMiddleware, Session, SubscribeMiddleware, TransMiddleware,
-    Value,
+    ReplConfMasterMiddleware, ReplicaMiddleware, Session, TransMiddleware, Value,
 };
 use std::sync::Arc;
 
@@ -36,7 +35,6 @@ pub fn start(ctx: Arc<Context>, conn: ConnectionHandler) -> Result<()> {
 fn main_pipeline() -> CommandPipeline {
     let pipeline = CommandPipeline::new();
     pipeline
-        .use_middleware(Box::new(SubscribeMiddleware)) // subscribed 模式控制中间件
         .use_middleware(Box::new(TransMiddleware)) // 事务控制中间件
         .use_middleware(Box::new(ReplicaMiddleware)) // 复本同步中间件
         .use_middleware(Box::new(AofMiddleware)) // aof存储中间件

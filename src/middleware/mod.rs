@@ -1,7 +1,6 @@
 mod aof;
 mod repl_conf;
 mod replica;
-mod subscribe;
 mod trans;
 
 use crate::{CmdExecutor, Command, CommandResponse, Context, context::Session};
@@ -11,7 +10,6 @@ use std::sync::Arc;
 pub use aof::AofMiddleware;
 pub use repl_conf::{ReplConfMasterMiddleware, ReplConfSlaveMiddleware};
 pub use replica::ReplicaMiddleware;
-pub use subscribe::SubscribeMiddleware;
 pub use trans::{TransMiddleware, Transaction};
 
 /// 对于所有命令都通用的判断/处理逻辑，可以封装成中间件统一管理，通过洋葱模型解藕横切关注点与外围生命周期。
