@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
 
-use crate::{ConnectionHandler, Subscription, Transaction};
+use crate::{ConnectionHandler, Subscription, Transaction, Value};
 
 /// 客户端状态
 pub struct Session {
@@ -74,5 +74,9 @@ impl Session {
             .as_ref()
             .map(|s| !s.is_empty())
             .unwrap_or(false)
+    }
+
+    pub fn write_value(&mut self, value: Value) -> Result<()> {
+        self.connection_mut()?.write_all(&value.to_bytes())
     }
 }

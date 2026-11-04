@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::HashMap,
     sync::{
         Arc,
         mpsc::{self, Receiver, Sender},
@@ -11,32 +11,59 @@ use dashmap::DashMap;
 
 use crate::Context;
 
+pub struct ChenalMessage {
+    pub(crate) chennal: Bytes,
+    pub(crate) message: Bytes,
+}
+
+impl ChenalMessage {
+    pub(crate) fn new(chennal: Bytes, message: Bytes) -> Self {
+        Self { chennal, message }
+    }
+}
+
 /// 客户端的订阅
 pub struct Subscription {
-    chennals: HashSet<Bytes>,
+    chenal_listeners: HashMap<Bytes, Receiver<Bytes>>,
 }
 
 impl Subscription {
     pub fn new() -> Self {
         Self {
-            chennals: HashSet::with_capacity(8),
+            chenal_listeners: HashMap::with_capacity(8),
         }
     }
 
-    pub fn subscirbe(&mut self, name: Bytes, ctx: &Arc<Context>) -> Option<Receiver<Bytes>> {
-        if self.chennals.insert(name.clone()) {
-            let rx = ctx.chennals_hub().subscribe(name);
-            return Some(rx);
+    pub fn subscirbe(&mut self, name: Bytes, ctx: &Arc<Context>) -> usize {
+        // 确保不会重复订阅
+        self.chenal_listeners
+            .entry(name.clone())
+            .or_insert_with(|| ctx.chennals_hub().subscribe(name));
+
+        self.chenal_listeners.len()
+    }
+
+    pub fn unsubscribe(&mut self, name: Bytes, _ctx: &Arc<Context>) -> usize {
+        self.chenal_listeners.remove(&name);
+        self.chenal_listeners.len()
+    }
+
+    pub fn try_recv_msgs(&self) -> Vec<ChenalMessage> {
+        let mut result = Vec::with_capacity(self.chenal_listeners.len());
+        for (chennal, rx) in &self.chenal_listeners {
+            if let Ok(msg) = rx.try_recv() {
+                result.push(ChenalMessage::new(chennal.clone(), msg));
+            }
         }
-        None
+        result
     }
 
     pub fn len(&self) -> usize {
-        self.chennals.len()
+        self.chenal_listeners.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.chennals.is_empty()
+        self.chenal_listeners.is_empty()
     }
 }
 

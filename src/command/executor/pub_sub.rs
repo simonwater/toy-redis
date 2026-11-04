@@ -1,7 +1,8 @@
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Error, Result, anyhow};
 use bytes::Bytes;
 use std::{
-    sync::{Arc, mpsc::Receiver},
+    io::{self, ErrorKind},
+    sync::Arc,
     time::Duration,
 };
 
@@ -12,91 +13,83 @@ pub(super) fn execute_subscribe(
     ctx: &Arc<Context>,
     session: &mut Session,
 ) -> Result<CommandResponse> {
-    let mut rx_list = Vec::with_capacity(16);
-    let val = handle_subscribe(cmd, &mut rx_list, ctx, session)?;
-    session.connection_mut()?.write_all(&val.to_bytes())?;
+    let val = handle_subscribe(cmd, ctx, session)?;
+    session.write_value(val)?;
     let result = CommandResponse::TakeOver(Box::new(move |ctx, mut session| {
-        if let Err(e) = start_loop(ctx, &mut session, rx_list) {
+        if let Err(e) = subscribe_loop(ctx, &mut session) {
             eprintln!("{}", e);
             let val = Value::SimpleErrors(format!("{}", e));
-            session.connection_mut()?.write_all(&val.to_bytes())?;
+            session.write_value(val)?;
         }
         Ok(ConnectionState::Close)
     }));
     Ok(result.into())
 }
 
-fn start_loop(
-    ctx: &Arc<Context>,
-    session: &mut Session,
-    mut rx_list: Vec<(Bytes, Receiver<Bytes>)>,
-) -> Result<()> {
+fn subscribe_loop(ctx: &Arc<Context>, session: &mut Session) -> Result<()> {
     let conn = session.connection_mut()?;
     conn.get_stream()
         .set_read_timeout(Some(Duration::from_millis(100)))?;
+
+    // 约定循环内部代码返回异常时（?）退出循环
     loop {
         // 接收chennal订阅消息
-        try_recv_msg(session, &rx_list)?;
+        try_recv_chennalmsg(session)?;
 
-        // 接收客户端命令
+        // 接收客户端命令，等待时间100ms
         match session.connection_mut()?.receive_command() {
             Ok(Some(command)) => {
                 // 执行命令
-                let cmd_result = match command.name.as_str() {
-                    "QUIT" => {
-                        session
-                            .connection_mut()?
-                            .write_all(&Value::SimpleStrings("OK".into()).to_bytes())?;
+                if command.name.as_str() == "QUIT" {
+                    session.write_value(Value::SimpleStrings("OK".into()))?;
+                    return Ok(());
+                }
 
-                        return Ok(());
-                    }
-                    _ => exec_cmd(&command, &mut rx_list, ctx, session)?,
+                let cmd_result = match handle_loop_cmd(&command, ctx, session) {
+                    Ok(value) => value,
+                    Err(e) => Value::SimpleErrors(format!("{}", e)),
                 };
-                session
-                    .connection_mut()?
-                    .write_all(&cmd_result.to_bytes())?;
+                session.write_value(cmd_result)?;
             }
-            Ok(None) => return Ok(()),
-            Err(e) => {
-                if let Some(io_err) = e.downcast_ref::<std::io::Error>() {
-                    if io_err.kind() == std::io::ErrorKind::TimedOut
-                        || io_err.kind() == std::io::ErrorKind::WouldBlock
-                    {
-                        // 超时处理
-                        continue;
-                    }
+            Ok(None) => return Ok(()), // 客户端关闭
+            Err(err) => {
+                if is_timeout(&err) {
+                    continue;
                 } else {
-                    bail!(e)
+                    return Err(err);
                 }
             }
         }
     }
 }
 
-fn try_recv_msg(session: &mut Session, rx_list: &Vec<(Bytes, Receiver<Bytes>)>) -> Result<()> {
+fn is_timeout(err: &Error) -> bool {
+    if let Some(io_err) = err.downcast_ref::<io::Error>()
+        && (io_err.kind() == ErrorKind::TimedOut || io_err.kind() == ErrorKind::WouldBlock)
+    {
+        return true;
+    }
+    false
+}
+
+fn try_recv_chennalmsg(session: &mut Session) -> Result<()> {
     // 接收chennal订阅消息
-    for (chennal, rx) in rx_list {
-        if let Ok(msg) = rx.try_recv() {
-            let val = Value::Arrays(vec![
-                Bytes::from_static(b"message").into(),
-                chennal.clone().into(),
-                msg.into(),
-            ]);
-            session.connection_mut()?.write_all(&val.to_bytes())?;
-        }
+    let chennal_msgs = session.subscription_ref()?.try_recv_msgs();
+    for chennal_msg in chennal_msgs {
+        let val = Value::Arrays(vec![
+            Bytes::from_static(b"message").into(),
+            chennal_msg.chennal.into(),
+            chennal_msg.message.into(),
+        ]);
+        session.connection_mut()?.write_all(&val.to_bytes())?;
     }
     Ok(())
 }
 
-fn exec_cmd(
-    command: &Command,
-    rx_list: &mut Vec<(Bytes, Receiver<Bytes>)>,
-    ctx: &Arc<Context>,
-    session: &mut Session,
-) -> Result<Value> {
+fn handle_loop_cmd(command: &Command, ctx: &Arc<Context>, session: &mut Session) -> Result<Value> {
     let cmd_result = match command.name.as_str() {
-        "SUBSCRIBE" => handle_subscribe(&command, rx_list, ctx, session)?,
-        "UNSUBSCRIBE" => Value::SimpleErrors("unsupported command: UNSUBSCRIBE".into()),
+        "SUBSCRIBE" => handle_subscribe(&command, ctx, session)?,
+        "UNSUBSCRIBE" => handle_unsubscribe(&command, ctx, session)?,
         "PSUBSCRIBE" => Value::SimpleErrors("unsupported command: PSUBSCRIBE".into()),
         "PUNSUBSCRIBE" => Value::SimpleErrors("unsupported command: PUNSUBSCRIBE".into()),
         "PING" => handle_ping()?,
@@ -108,25 +101,35 @@ fn exec_cmd(
     Ok(cmd_result)
 }
 
-fn handle_subscribe(
-    cmd: &Command,
-    rx_list: &mut Vec<(Bytes, Receiver<Bytes>)>,
-    ctx: &Arc<Context>,
-    session: &mut Session,
-) -> Result<Value> {
+fn handle_subscribe(cmd: &Command, ctx: &Arc<Context>, session: &mut Session) -> Result<Value> {
     let mut arg_iter = cmd.args.iter();
     let chennal = arg_iter
         .next()
         .ok_or_else(|| anyhow!("subscribe command missing chennal argument!"))?
         .to_bulk_bytes()?;
     let sub = session.subscription_mut()?;
-    if let Some(rx) = sub.subscirbe(chennal.clone(), ctx) {
-        rx_list.push((chennal.clone(), rx));
-    }
+    let len = sub.subscirbe(chennal.clone(), ctx);
     let val = Value::Arrays(vec![
         Bytes::from_static(b"subscribe").into(),
         chennal.into(),
-        Value::Integer(sub.len() as i64),
+        Value::Integer(len as i64),
+    ]);
+
+    Ok(val)
+}
+
+fn handle_unsubscribe(cmd: &Command, ctx: &Arc<Context>, session: &mut Session) -> Result<Value> {
+    let mut arg_iter = cmd.args.iter();
+    let chennal = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("unsubscribe command missing chennal argument!"))?
+        .to_bulk_bytes()?;
+    let sub = session.subscription_mut()?;
+    let len = sub.unsubscribe(chennal.clone(), ctx);
+    let val = Value::Arrays(vec![
+        Bytes::from_static(b"unsubscribe").into(),
+        chennal.into(),
+        Value::Integer(len as i64),
     ]);
 
     Ok(val)
