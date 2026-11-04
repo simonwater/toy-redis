@@ -28,6 +28,8 @@ STAGES=(
   "uj3" "vd9" "fm0" "dw4" "pb9" "dc8" "fi1" "ep6" "xz2" "kn2"
   # Pub/Sub
   "mx3" "zc8" "aw8" "lf1" "hf2" "dn4" "ze9"
+  # Sorted Sets
+  "ct1" "hf1" "lg6" "ic1" "bj4" "kn4" "gd7" "sq7"
 )
 
 TARGET_SLUG=$1
