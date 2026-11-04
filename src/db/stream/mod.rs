@@ -24,7 +24,7 @@ impl ReStream {
         }
     }
 
-    pub fn unregister_waiter(&self, signal: Arc<Signal>) {
+    pub fn _unregister_waiter(&self, signal: Arc<Signal>) {
         let mut waiters = self.waiter_clients.lock().unwrap();
         waiters.retain(|w| !Arc::ptr_eq(w, &signal));
     }

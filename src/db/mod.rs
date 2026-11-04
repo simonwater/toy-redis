@@ -1,21 +1,23 @@
 mod list;
 mod redis_object;
 mod signal;
+mod sorted_set;
 mod stream;
 
 use anyhow::{Context, Result, anyhow, bail};
 use bytes::Bytes;
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
+use list::ReList;
 use redis_object::RedisObject;
+use signal::Signal;
+use sorted_set::SortedSet;
 use std::fs::File;
 use std::io::{Read, Seek};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-pub use list::ReList;
-pub(crate) use signal::Signal;
-pub use stream::{ReStream, StreamEntry};
+pub(crate) use stream::{ReStream, StreamEntry};
 
 use crate::{RdbItem, RdbParser, RdbValue, RedisArgs};
 
@@ -418,5 +420,30 @@ impl MemoryDB {
             }
         }
         Ok(!results.is_empty())
+    }
+}
+
+/// zset
+impl MemoryDB {
+    fn get_or_create_zset(&self, key: Bytes) -> Result<Arc<SortedSet>> {
+        self.map
+            .entry(key.clone())
+            .or_insert_with(|| MemoItem::new(RedisObject::new_zset(key)))
+            .value()
+            .object
+            .to_zset()
+    }
+
+    fn _get_zset(&self, key: &Bytes) -> Result<Option<Arc<SortedSet>>> {
+        self.map
+            .get(key)
+            .map(|entry| entry.value().object.to_zset())
+            .transpose()
+    }
+
+    pub fn zadd(&self, set_key: Bytes, pairs: Vec<(f64, Bytes)>) -> Result<i64> {
+        let zset = self.get_or_create_zset(set_key)?;
+        let cnt = zset.add(pairs);
+        Ok(cnt)
     }
 }

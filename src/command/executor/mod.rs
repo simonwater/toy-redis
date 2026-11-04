@@ -3,6 +3,7 @@ mod list;
 mod pub_sub;
 mod repl_sync;
 mod stream;
+mod zset;
 
 use crate::{Command, CommandResponse, Context, Session};
 use anyhow::{Result, bail};
@@ -39,6 +40,7 @@ pub fn execute(
         "FML" => basic::execute_fml(cmd, ctx),
         "SUBSCRIBE" => pub_sub::execute_subscribe(cmd, ctx, session),
         "PUBLISH" => pub_sub::execute_publish(cmd, ctx, session),
+        "ZADD" => zset::execute_zadd(cmd, ctx),
         _ => bail!("unsupported command!"),
     }
 }

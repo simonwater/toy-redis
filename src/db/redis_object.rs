@@ -1,4 +1,4 @@
-use super::{ReList, ReStream};
+use super::{ReList, ReStream, SortedSet};
 use anyhow::{Result, bail};
 use bytes::Bytes;
 use std::sync::Arc;
@@ -8,6 +8,7 @@ pub enum RedisObject {
     String(Bytes),
     List(Arc<ReList>),
     Stream(Arc<ReStream>),
+    SortedSet(Arc<SortedSet>),
 }
 
 impl RedisObject {
@@ -23,11 +24,16 @@ impl RedisObject {
         Self::Stream(Arc::new(ReStream::new(name)))
     }
 
+    pub fn new_zset(_name: Bytes) -> Self {
+        Self::SortedSet(Arc::new(SortedSet::new()))
+    }
+
     pub fn obj_type(&self) -> String {
         match self {
             RedisObject::String(_) => "string".into(),
             RedisObject::List(_) => "list".into(),
             RedisObject::Stream(_) => "stream".into(),
+            RedisObject::SortedSet(_) => "sorted set".into(),
         }
     }
 
@@ -49,6 +55,13 @@ impl RedisObject {
         match self {
             RedisObject::Stream(stream_arc) => Ok(Arc::clone(stream_arc)),
             _ => bail!("type is not stream"),
+        }
+    }
+
+    pub fn to_zset(&self) -> Result<Arc<SortedSet>> {
+        match self {
+            RedisObject::SortedSet(zset_arc) => Ok(Arc::clone(zset_arc)),
+            _ => bail!("type is not sorted set"),
         }
     }
 }
