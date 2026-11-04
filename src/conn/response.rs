@@ -1,6 +1,5 @@
 use anyhow::Result;
 use bytes::Bytes;
-use std::io::Read;
 use std::sync::Arc;
 
 use crate::{Context, Session, Value};
@@ -16,11 +15,6 @@ pub enum CommandResponse {
     TakeOver(Box<dyn FnOnce(&Arc<Context>, Session) -> Result<ConnectionState>>), // 由自定义的逻辑接管连接
     Close(Value),                                                                 // 结束连接
     ReplConf(Value), // 副本响应主服务replconf命令时返回的结果，区别于Standard，副本同步返回Standard时不会给主服务响应
-    ReplSync {
-        init_value: Value,
-        stream: Box<dyn Read>,
-        len: usize,
-    },
 }
 
 impl CommandResponse {
@@ -34,18 +28,6 @@ impl CommandResponse {
             Self::TakeOver(handler) => handler(ctx, session),
             Self::Close(value) => {
                 conn.write_all(&value.to_bytes())?;
-                Ok(ConnectionState::Close)
-            }
-            Self::ReplSync {
-                init_value,
-                mut stream,
-                len,
-            } => {
-                conn.write_all(&init_value.to_bytes())?;
-                let head = format!("${}\r\n", len);
-                conn.write_all(head.as_bytes())?;
-                std::io::copy(&mut stream, conn.get_stream())?;
-                ctx.repl_hub().register_repla(session);
                 Ok(ConnectionState::Close)
             }
         }

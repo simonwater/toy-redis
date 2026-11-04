@@ -13,14 +13,11 @@ pub(super) fn execute_subscribe(
     ctx: &Arc<Context>,
     session: &mut Session,
 ) -> Result<CommandResponse> {
+    // 进入订阅模式
     let val = handle_subscribe(cmd, ctx, session)?;
     session.write_value(val)?;
     let result = CommandResponse::TakeOver(Box::new(move |ctx, mut session| {
-        if let Err(e) = subscribe_loop(ctx, &mut session) {
-            eprintln!("{}", e);
-            let val = Value::SimpleErrors(format!("{}", e));
-            session.write_value(val)?;
-        }
+        subscribe_loop(ctx, &mut session)?;
         Ok(ConnectionState::Close)
     }));
     Ok(result.into())
@@ -47,7 +44,10 @@ fn subscribe_loop(ctx: &Arc<Context>, session: &mut Session) -> Result<()> {
 
                 let cmd_result = match handle_loop_cmd(&command, ctx, session) {
                     Ok(value) => value,
-                    Err(e) => Value::SimpleErrors(format!("{}", e)),
+                    Err(e) => {
+                        eprintln!("subscribe mode command error: {}", e);
+                        Value::SimpleErrors(format!("{}", e))
+                    }
                 };
                 session.write_value(cmd_result)?;
             }
