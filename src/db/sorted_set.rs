@@ -74,13 +74,10 @@ impl ZSetInner {
     }
 
     fn rank(&self, member: Bytes) -> Option<i64> {
-        if let Some(score) = self.score_map.get(&member).copied() {
-            let entry = ZSetEntry::new(score, member);
-            let cnt = self.order_set.range(entry..).count();
-            let r = (self.order_set.len() - cnt) as i64;
-            return Some(r);
-        }
-        None
+        let score = self.score_map.get(&member).copied()?;
+        let entry = ZSetEntry::new(score, member);
+        let r = self.order_set.range(..entry).count() as i64;
+        return Some(r);
     }
 }
 
