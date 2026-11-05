@@ -79,6 +79,28 @@ impl ZSetInner {
         let r = self.order_set.range(..entry).count() as i64;
         return Some(r);
     }
+
+    fn range(&self, mut start: i64, mut end: i64) -> Vec<Bytes> {
+        if start < 0 {
+            start = 0.max(self.order_set.len() as i64 + start);
+        }
+        if end < 0 {
+            end = 0.max(self.order_set.len() as i64 + end);
+        }
+        let start = start as usize;
+        let mut end = end as usize;
+        end = end.min(self.order_set.len() - 1);
+        if start > end {
+            return Vec::new();
+        }
+        let count = end - start + 1;
+        self.order_set
+            .iter()
+            .skip(start)
+            .take(count)
+            .map(|entry| entry.member.clone())
+            .collect()
+    }
 }
 
 #[derive(Debug)]
@@ -107,5 +129,10 @@ impl SortedSet {
     pub fn rank(&self, member: Bytes) -> Option<i64> {
         let set = self.zset.read().unwrap();
         set.rank(member)
+    }
+
+    pub fn range(&self, start: i64, end: i64) -> Vec<Bytes> {
+        let set = self.zset.read().unwrap();
+        set.range(start, end)
     }
 }

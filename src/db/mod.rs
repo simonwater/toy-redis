@@ -454,4 +454,12 @@ impl MemoryDB {
         }
         Ok(None)
     }
+
+    pub fn zrange(&self, set_key: Bytes, start: i64, end: i64) -> Result<Vec<Bytes>> {
+        if let Some(zset) = self.get_zset(&set_key)? {
+            let range = zset.range(start, end);
+            return Ok(range);
+        }
+        Ok(Vec::new())
+    }
 }

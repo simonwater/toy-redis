@@ -42,6 +42,7 @@ pub fn execute(
         "PUBLISH" => pub_sub::execute_publish(cmd, ctx, session),
         "ZADD" => zset::execute_zadd(cmd, ctx),
         "ZRANK" => zset::execute_zrank(cmd, ctx),
+        "ZRANGE" => zset::execute_zrange(cmd, ctx),
         _ => bail!("unsupported command!"),
     }
 }

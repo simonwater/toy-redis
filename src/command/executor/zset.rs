@@ -41,3 +41,23 @@ pub(super) fn execute_zrank(cmd: &Command, ctx: &Arc<Context>) -> Result<Command
     };
     return Ok(val.into());
 }
+
+pub(super) fn execute_zrange(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut arg_iter = cmd.args.iter();
+    let set_key = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("zrange command missing list key!"))?
+        .to_bulk_bytes()?;
+    let start = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("zrange command missing start index."))?
+        .to_integer()?;
+    let end = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("zrange command missing end index."))?
+        .to_integer()?;
+
+    let db = ctx.db_ref();
+    let value = db.zrange(set_key, start, end)?;
+    Ok(value.into())
+}
