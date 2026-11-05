@@ -43,12 +43,12 @@ impl Ord for ZSetEntry {
 }
 
 #[derive(Debug)]
-struct ZSet {
+struct ZSetInner {
     score_map: HashMap<Bytes, f64>,
     order_set: BTreeSet<ZSetEntry>,
 }
 
-impl ZSet {
+impl ZSetInner {
     fn new() -> Self {
         Self {
             score_map: HashMap::with_capacity(16),
@@ -57,24 +57,32 @@ impl ZSet {
     }
 
     fn add(&mut self, score: f64, member: Bytes) -> bool {
-        if self.score_map.insert(member.clone(), score).is_none() {
-            let entry = ZSetEntry::new(score, member);
-            self.order_set.insert(entry);
-            return true;
-        }
-        false
+        // 默认行为，插入或更新，更新不计入结果
+        let result = if let Some(old_score) = self.score_map.insert(member.clone(), score) {
+            if old_score == score {
+                return false;
+            }
+
+            self.order_set
+                .remove(&ZSetEntry::new(old_score, member.clone()));
+            false
+        } else {
+            true
+        };
+        self.order_set.insert(ZSetEntry::new(score, member));
+        result
     }
 }
 
 #[derive(Debug)]
 pub struct SortedSet {
-    zset: RwLock<ZSet>,
+    zset: RwLock<ZSetInner>,
 }
 
 impl SortedSet {
     pub fn new() -> Self {
         Self {
-            zset: RwLock::new(ZSet::new()),
+            zset: RwLock::new(ZSetInner::new()),
         }
     }
 
