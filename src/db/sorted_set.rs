@@ -72,6 +72,16 @@ impl ZSetInner {
         self.order_set.insert(ZSetEntry::new(score, member));
         result
     }
+
+    fn rank(&self, member: Bytes) -> Option<i64> {
+        if let Some(score) = self.score_map.get(&member).copied() {
+            let entry = ZSetEntry::new(score, member);
+            let cnt = self.order_set.range(entry..).count();
+            let r = (self.order_set.len() - cnt) as i64;
+            return Some(r);
+        }
+        None
+    }
 }
 
 #[derive(Debug)]
@@ -95,5 +105,10 @@ impl SortedSet {
             }
         }
         cnt
+    }
+
+    pub fn rank(&self, member: Bytes) -> Option<i64> {
+        let set = self.zset.read().unwrap();
+        set.rank(member)
     }
 }

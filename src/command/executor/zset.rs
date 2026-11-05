@@ -1,4 +1,4 @@
-use crate::{Command, CommandResponse, Context};
+use crate::{Command, CommandResponse, Context, Value};
 use anyhow::{Result, anyhow};
 use std::sync::Arc;
 
@@ -21,4 +21,23 @@ pub(super) fn execute_zadd(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandR
     let db = ctx.db_ref();
     let len = db.zadd(set_key, args)?;
     Ok(len.into())
+}
+
+pub(super) fn execute_zrank(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut args_iter = cmd.args.iter();
+    let set_key = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("zrank command missing set key!"))?
+        .to_bulk_bytes()?;
+    let member = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("zrank command missing member argument!"))?
+        .to_bulk_bytes()?;
+    let db = ctx.db_ref();
+    let val = if let Some(rank) = db.zrank(set_key, member)? {
+        rank.into()
+    } else {
+        Value::NullBulkStrings
+    };
+    return Ok(val.into());
 }

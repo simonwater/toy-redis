@@ -434,7 +434,7 @@ impl MemoryDB {
             .to_zset()
     }
 
-    fn _get_zset(&self, key: &Bytes) -> Result<Option<Arc<SortedSet>>> {
+    fn get_zset(&self, key: &Bytes) -> Result<Option<Arc<SortedSet>>> {
         self.map
             .get(key)
             .map(|entry| entry.value().object.to_zset())
@@ -445,5 +445,13 @@ impl MemoryDB {
         let zset = self.get_or_create_zset(set_key)?;
         let cnt = zset.add(pairs);
         Ok(cnt)
+    }
+
+    pub fn zrank(&self, set_key: Bytes, member: Bytes) -> Result<Option<i64>> {
+        if let Some(zset) = self.get_zset(&set_key)? {
+            let rank = zset.rank(member);
+            return Ok(rank);
+        }
+        Ok(None)
     }
 }
