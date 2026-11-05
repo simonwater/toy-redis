@@ -470,4 +470,12 @@ impl MemoryDB {
         }
         Ok(0)
     }
+
+    pub fn zscore(&self, set_key: Bytes, member: Bytes) -> Result<Option<f64>> {
+        if let Some(zset) = self.get_zset(&set_key)? {
+            let score_opt = zset.score(member);
+            return Ok(score_opt);
+        }
+        return Ok(None);
+    }
 }

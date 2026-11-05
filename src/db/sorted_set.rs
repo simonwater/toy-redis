@@ -105,6 +105,10 @@ impl ZSetInner {
     fn len(&self) -> i64 {
         self.order_set.len() as i64
     }
+
+    fn score(&self, member: Bytes) -> Option<f64> {
+        self.score_map.get(&member).copied()
+    }
 }
 
 #[derive(Debug)]
@@ -143,5 +147,10 @@ impl SortedSet {
     pub fn len(&self) -> i64 {
         let set = self.zset.read().unwrap();
         set.len()
+    }
+
+    pub fn score(&self, member: Bytes) -> Option<f64> {
+        let set = self.zset.read().unwrap();
+        set.score(member)
     }
 }

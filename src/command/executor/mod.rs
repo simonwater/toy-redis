@@ -44,6 +44,7 @@ pub fn execute(
         "ZRANK" => zset::execute_zrank(cmd, ctx),
         "ZRANGE" => zset::execute_zrange(cmd, ctx),
         "ZCARD" => zset::execute_zcard(cmd, ctx),
+        "ZSCORE" => zset::execute_zscore(cmd, ctx),
         _ => bail!("unsupported command!"),
     }
 }

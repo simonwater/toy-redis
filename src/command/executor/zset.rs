@@ -1,5 +1,6 @@
 use crate::{Command, CommandResponse, Context, Value};
 use anyhow::{Result, anyhow};
+use bytes::Bytes;
 use std::sync::Arc;
 
 pub(super) fn execute_zadd(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
@@ -72,4 +73,23 @@ pub(super) fn execute_zcard(cmd: &Command, ctx: &Arc<Context>) -> Result<Command
     let db = ctx.db_ref();
     let len = db.zcard(set_key)?;
     Ok(len.into())
+}
+
+pub(super) fn execute_zscore(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut args_iter = cmd.args.iter();
+    let set_key = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("zscore command missing sorted set key!"))?
+        .to_bulk_bytes()?;
+    let member = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("zscore command missing member argument!"))?
+        .to_bulk_bytes()?;
+    let db = ctx.db_ref();
+    let val = if let Some(score) = db.zscore(set_key, member)? {
+        Bytes::from(score.to_string()).into()
+    } else {
+        Value::NullBulkStrings
+    };
+    return Ok(val.into());
 }
