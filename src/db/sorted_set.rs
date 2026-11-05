@@ -73,6 +73,15 @@ impl ZSetInner {
         result
     }
 
+    fn remove(&mut self, member: Bytes) -> bool {
+        if let Some(score) = self.score_map.remove(&member) {
+            let entry = ZSetEntry::new(score, member);
+            self.order_set.remove(&entry);
+            return true;
+        }
+        false
+    }
+
     fn rank(&self, member: Bytes) -> Option<i64> {
         let score = self.score_map.get(&member).copied()?;
         let entry = ZSetEntry::new(score, member);
@@ -132,6 +141,14 @@ impl SortedSet {
             }
         }
         cnt
+    }
+
+    pub fn remove(&self, member: Bytes) -> i64 {
+        let mut set = self.zset.write().unwrap();
+        if set.remove(member) {
+            return 1;
+        }
+        0
     }
 
     pub fn rank(&self, member: Bytes) -> Option<i64> {

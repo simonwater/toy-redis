@@ -93,3 +93,18 @@ pub(super) fn execute_zscore(cmd: &Command, ctx: &Arc<Context>) -> Result<Comman
     };
     return Ok(val.into());
 }
+
+pub(super) fn execute_zrem(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut args_iter = cmd.args.iter();
+    let set_key = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("zrem command missing sorted set key!"))?
+        .to_bulk_bytes()?;
+    let member = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("zrem command missing member argument!"))?
+        .to_bulk_bytes()?;
+    let db = ctx.db_ref();
+    let cnt = db.zrem(set_key, member)?;
+    return Ok(cnt.into());
+}

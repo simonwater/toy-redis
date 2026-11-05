@@ -447,6 +447,14 @@ impl MemoryDB {
         Ok(cnt)
     }
 
+    pub fn zrem(&self, set_key: Bytes, member: Bytes) -> Result<i64> {
+        if let Some(zset) = self.get_zset(&set_key)? {
+            let cnt = zset.remove(member);
+            return Ok(cnt);
+        }
+        Ok(0)
+    }
+
     pub fn zrank(&self, set_key: Bytes, member: Bytes) -> Result<Option<i64>> {
         if let Some(zset) = self.get_zset(&set_key)? {
             let rank = zset.rank(member);
