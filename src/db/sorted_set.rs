@@ -101,6 +101,10 @@ impl ZSetInner {
             .map(|entry| entry.member.clone())
             .collect()
     }
+
+    fn len(&self) -> i64 {
+        self.order_set.len() as i64
+    }
 }
 
 #[derive(Debug)]
@@ -134,5 +138,10 @@ impl SortedSet {
     pub fn range(&self, start: i64, end: i64) -> Vec<Bytes> {
         let set = self.zset.read().unwrap();
         set.range(start, end)
+    }
+
+    pub fn len(&self) -> i64 {
+        let set = self.zset.read().unwrap();
+        set.len()
     }
 }

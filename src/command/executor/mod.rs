@@ -43,6 +43,7 @@ pub fn execute(
         "ZADD" => zset::execute_zadd(cmd, ctx),
         "ZRANK" => zset::execute_zrank(cmd, ctx),
         "ZRANGE" => zset::execute_zrange(cmd, ctx),
+        "ZCARD" => zset::execute_zcard(cmd, ctx),
         _ => bail!("unsupported command!"),
     }
 }

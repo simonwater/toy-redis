@@ -7,7 +7,7 @@ pub(super) fn execute_zadd(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandR
         .args
         .iter()
         .next()
-        .ok_or_else(|| anyhow!("zadd command missing set key!"))?
+        .ok_or_else(|| anyhow!("zadd command missing sorted set key!"))?
         .to_bulk_bytes()?;
 
     let chunks = cmd.args[1..].chunks_exact(2);
@@ -27,7 +27,7 @@ pub(super) fn execute_zrank(cmd: &Command, ctx: &Arc<Context>) -> Result<Command
     let mut args_iter = cmd.args.iter();
     let set_key = args_iter
         .next()
-        .ok_or_else(|| anyhow!("zrank command missing set key!"))?
+        .ok_or_else(|| anyhow!("zrank command missing sorted set key!"))?
         .to_bulk_bytes()?;
     let member = args_iter
         .next()
@@ -46,7 +46,7 @@ pub(super) fn execute_zrange(cmd: &Command, ctx: &Arc<Context>) -> Result<Comman
     let mut arg_iter = cmd.args.iter();
     let set_key = arg_iter
         .next()
-        .ok_or_else(|| anyhow!("zrange command missing list key!"))?
+        .ok_or_else(|| anyhow!("zrange command missing sorted set key!"))?
         .to_bulk_bytes()?;
     let start = arg_iter
         .next()
@@ -60,4 +60,16 @@ pub(super) fn execute_zrange(cmd: &Command, ctx: &Arc<Context>) -> Result<Comman
     let db = ctx.db_ref();
     let value = db.zrange(set_key, start, end)?;
     Ok(value.into())
+}
+
+pub(super) fn execute_zcard(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut arg_iter = cmd.args.iter();
+    let set_key = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("zcard command missing sorted set key!"))?
+        .to_bulk_bytes()?;
+
+    let db = ctx.db_ref();
+    let len = db.zcard(set_key)?;
+    Ok(len.into())
 }

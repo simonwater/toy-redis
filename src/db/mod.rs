@@ -462,4 +462,12 @@ impl MemoryDB {
         }
         Ok(Vec::new())
     }
+
+    pub fn zcard(&self, set_key: Bytes) -> Result<i64> {
+        if let Some(zset) = self.get_zset(&set_key)? {
+            let len = zset.len();
+            return Ok(len);
+        }
+        Ok(0)
+    }
 }
