@@ -163,6 +163,13 @@ impl MemoryDB {
         return Ok(None);
     }
 
+    pub fn strlen(&self, key: &Bytes) -> Result<i64> {
+        if let Some(bytes) = self.get(key)? {
+            return Ok(bytes.len() as i64);
+        }
+        Ok(0)
+    }
+
     pub fn get_version(&self, key: &Bytes) -> Option<u64> {
         if let Some(entry) = self.map.get(key)
             && !entry.is_expired()

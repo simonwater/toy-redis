@@ -20,6 +20,7 @@ pub fn execute(
         "ECHO" => basic::execute_echo(cmd),
         "INFO" => basic::execute_info(cmd, ctx),
         "GET" => basic::execute_get(cmd, ctx),
+        "STRLEN" => basic::execute_strlen(cmd, ctx),
         "SET" => basic::execute_set(cmd, ctx),
         "TYPE" => basic::execute_type(cmd, ctx),
         "INCR" => basic::execute_incr(cmd, ctx),

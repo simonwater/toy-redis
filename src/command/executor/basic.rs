@@ -61,6 +61,18 @@ pub(super) fn execute_get(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandRe
     return Ok(Value::NullBulkStrings.into());
 }
 
+pub(super) fn execute_strlen(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut arg_iter = cmd.args.iter();
+    let key = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("strlen command missing key!"))?
+        .to_bulk_bytes()?;
+
+    let db = ctx.db_ref();
+    let len = db.strlen(&key)?;
+    Ok(len.into())
+}
+
 pub(super) fn execute_type(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
     let mut arg_iter = cmd.args.iter();
     let key = arg_iter
