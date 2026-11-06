@@ -1,4 +1,4 @@
-use crate::{Command, CommandResponse, Context};
+use crate::{Command, CommandResponse, Context, Value};
 use anyhow::{Result, anyhow};
 use std::sync::Arc;
 
@@ -39,4 +39,24 @@ pub(super) fn execute_getbit(cmd: &Command, ctx: &Arc<Context>) -> Result<Comman
     let db = ctx.db_ref();
     let val = db.get_bit(key, offset)? as i64;
     Ok(val.into())
+}
+
+pub(super) fn execute_bitcount(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut arg_iter = cmd.args.iter();
+    let key = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("bitcount command missing bit map key!"))?
+        .to_bulk_bytes()?;
+    let start = arg_iter
+        .next()
+        .unwrap_or_else(|| &Value::Integer(0))
+        .to_integer()?;
+    let end = arg_iter
+        .next()
+        .unwrap_or_else(|| &Value::Integer(-1))
+        .to_integer()?;
+
+    let db = ctx.db_ref();
+    let cnt = db.bit_count(key, start, end)?;
+    Ok(cnt.into())
 }

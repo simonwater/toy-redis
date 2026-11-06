@@ -535,4 +535,12 @@ impl MemoryDB {
         }
         Ok(0)
     }
+
+    pub fn bit_count(&self, key: Bytes, start: i64, end: i64) -> Result<i64> {
+        if let Some(bytes) = self.get(&key)? {
+            let cnt = bitmap::bit_count(bytes, start, end);
+            return Ok(cnt);
+        }
+        Ok(0)
+    }
 }

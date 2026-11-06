@@ -50,6 +50,7 @@ pub fn execute(
         "ZREM" => zset::execute_zrem(cmd, ctx),
         "SETBIT" => bitmap::execute_setbit(cmd, ctx),
         "GETBIT" => bitmap::execute_getbit(cmd, ctx),
+        "BITCOUNT" => bitmap::execute_bitcount(cmd, ctx),
         _ => bail!("unsupported command: {:?}", cmd.bytes),
     }
 }

@@ -35,3 +35,19 @@ pub(super) fn get_bit(bytes: Bytes, offset: usize) -> u8 {
     let current_byte = bytes[bytes_index];
     (current_byte >> bit_offset) & 1
 }
+
+pub(super) fn bit_count(bytes: Bytes, mut start: i64, mut end: i64) -> i64 {
+    if start < 0 {
+        start = 0.max(bytes.len() as i64 + start);
+    }
+    if end < 0 {
+        end = 0.max(bytes.len() as i64 + end);
+    }
+    let start = start as usize;
+    let mut end = end as usize;
+    end = end.min(bytes.len() - 1);
+    bytes[start..=end]
+        .iter()
+        .map(|b| b.count_ones())
+        .sum::<u32>() as i64
+}
