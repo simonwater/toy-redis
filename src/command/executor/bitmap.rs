@@ -23,3 +23,20 @@ pub(super) fn execute_setbit(cmd: &Command, ctx: &Arc<Context>) -> Result<Comman
     let old_val = db.set_bit(key, offset, bit_val)? as i64;
     Ok(old_val.into())
 }
+
+pub(super) fn execute_getbit(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut arg_iter = cmd.args.iter();
+    let key = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("getbit command missing bit map key!"))?
+        .to_bulk_bytes()?;
+    let offset: usize = arg_iter
+        .next()
+        .ok_or_else(|| anyhow!("getbit command missing offset argument!"))?
+        .to_integer()?
+        .try_into()?;
+
+    let db = ctx.db_ref();
+    let val = db.get_bit(key, offset)? as i64;
+    Ok(val.into())
+}

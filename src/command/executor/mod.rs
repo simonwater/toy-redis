@@ -48,6 +48,7 @@ pub fn execute(
         "ZSCORE" => zset::execute_zscore(cmd, ctx),
         "ZREM" => zset::execute_zrem(cmd, ctx),
         "SETBIT" => bitmap::execute_setbit(cmd, ctx),
+        "GETBIT" => bitmap::execute_getbit(cmd, ctx),
         _ => bail!("unsupported command: {:?}", cmd.bytes),
     }
 }

@@ -520,4 +520,12 @@ impl MemoryDB {
         };
         Ok(old_val)
     }
+
+    pub fn get_bit(&self, key: Bytes, offset: usize) -> Result<u8> {
+        if let Some(bytes) = self.get(&key)? {
+            let val = bitmap::get_bit(bytes, offset);
+            return Ok(val);
+        }
+        Ok(0)
+    }
 }
