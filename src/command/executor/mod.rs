@@ -1,4 +1,5 @@
 mod basic;
+mod bitmap;
 mod list;
 mod pub_sub;
 mod repl_sync;
@@ -46,6 +47,7 @@ pub fn execute(
         "ZCARD" => zset::execute_zcard(cmd, ctx),
         "ZSCORE" => zset::execute_zscore(cmd, ctx),
         "ZREM" => zset::execute_zrem(cmd, ctx),
-        _ => bail!("unsupported command!"),
+        "SETBIT" => bitmap::execute_setbit(cmd, ctx),
+        _ => bail!("unsupported command: {:?}", cmd.bytes),
     }
 }

@@ -1,3 +1,4 @@
+mod bitmap;
 mod list;
 mod redis_object;
 mod signal;
@@ -5,7 +6,7 @@ mod sorted_set;
 mod stream;
 
 use anyhow::{Context, Result, anyhow, bail};
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
 use list::ReList;
@@ -485,5 +486,38 @@ impl MemoryDB {
             return Ok(score_opt);
         }
         return Ok(None);
+    }
+}
+
+/// bitmap
+impl MemoryDB {
+    pub fn set_bit(&self, key: Bytes, offset: usize, bit_val: u8) -> Result<u8> {
+        let old_val = match self.map.entry(key) {
+            dashmap::Entry::Occupied(mut e) => {
+                let item = e.get_mut();
+                match &mut item.object {
+                    RedisObject::String(bytes) => {
+                        let old_bytes = std::mem::take(bytes);
+
+                        let mut mut_buf = old_bytes
+                            .try_into_mut()
+                            .unwrap_or_else(|b| BytesMut::from(b.as_ref()));
+
+                        let old_val = bitmap::set_bit(&mut mut_buf, offset, bit_val)?;
+                        *bytes = mut_buf.freeze();
+                        old_val
+                    }
+                    _ => bail!("WRONGTYPE Operation against a key holding the wrong kind of value"),
+                }
+            }
+            dashmap::Entry::Vacant(e) => {
+                let mut mut_buf = BytesMut::new();
+                bitmap::set_bit(&mut mut_buf, offset, bit_val)?;
+                let item = MemoItem::new(RedisObject::String(mut_buf.freeze()));
+                e.insert(item);
+                0
+            }
+        };
+        Ok(old_val)
     }
 }
