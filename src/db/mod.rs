@@ -5,7 +5,7 @@ mod signal;
 mod sorted_set;
 mod stream;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Ok, Result, anyhow, bail};
 use bytes::{Bytes, BytesMut};
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
@@ -542,5 +542,21 @@ impl MemoryDB {
             return Ok(cnt);
         }
         Ok(0)
+    }
+
+    pub fn bitop_binary(&self, op: String, dest: Bytes, key1: Bytes, key2: Bytes) -> Result<i64> {
+        let bytes1 = self.get(&key1)?.unwrap_or_else(|| Bytes::new());
+        let bytes2 = self.get(&key2)?.unwrap_or_else(|| Bytes::new());
+        if bytes1.len() == 0 && bytes2.len() == 0 {
+            return Ok(0);
+        }
+        let bytes_dest = match op.to_uppercase().as_str() {
+            "AND" => bitmap::and(bytes1, bytes2),
+            "OR" => bitmap::or(bytes1, bytes2),
+            _ => bail!("unsupported bitop: {}", op),
+        };
+        let len = bytes_dest.len();
+        self.set(dest, bytes_dest);
+        return Ok(len as i64);
     }
 }

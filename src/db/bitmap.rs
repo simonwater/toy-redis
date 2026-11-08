@@ -51,3 +51,25 @@ pub(super) fn bit_count(bytes: Bytes, mut start: i64, mut end: i64) -> i64 {
         .map(|b| b.count_ones())
         .sum::<u32>() as i64
 }
+
+pub(super) fn and(bytes1: Bytes, bytes2: Bytes) -> Bytes {
+    let mut bytes_res = BytesMut::zeroed(bytes1.len().max(bytes2.len()));
+    for i in 0..bytes1.len().min(bytes2.len()) {
+        bytes_res[i] = bytes1[i] & bytes2[i];
+    }
+
+    bytes_res.freeze()
+}
+
+pub(super) fn or(bytes1: Bytes, bytes2: Bytes) -> Bytes {
+    let mut bytes_res = if bytes1.len() > bytes2.len() {
+        BytesMut::from(bytes1.clone())
+    } else {
+        BytesMut::from(bytes2.clone())
+    };
+    for i in 0..bytes1.len().min(bytes2.len()) {
+        bytes_res[i] = bytes1[i] | bytes2[i];
+    }
+
+    bytes_res.freeze()
+}

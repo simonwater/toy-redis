@@ -51,6 +51,7 @@ pub fn execute(
         "SETBIT" => bitmap::execute_setbit(cmd, ctx),
         "GETBIT" => bitmap::execute_getbit(cmd, ctx),
         "BITCOUNT" => bitmap::execute_bitcount(cmd, ctx),
+        "BITOP" => bitmap::execute_bitop(cmd, ctx),
         _ => bail!("unsupported command: {:?}", cmd.bytes),
     }
 }
