@@ -562,13 +562,29 @@ impl MemoryDB {
 }
 
 impl MemoryDB {
+    fn check_coord(&self, longitude: f64, latitude: f64) -> Result<()> {
+        if longitude < -180_f64
+            || longitude > 180_f64
+            || latitude < -85.05112878_f64
+            || latitude > 85.05112878_f64
+        {
+            bail!(
+                "ERR invalid longitude,latitude pair {},{}",
+                longitude,
+                latitude
+            )
+        }
+        Ok(())
+    }
+
     pub fn geoadd(
         &self,
         _key: Bytes,
-        _longitude: f64,
-        _latitude: f64,
+        longitude: f64,
+        latitude: f64,
         _member: Bytes,
     ) -> Result<i64> {
+        self.check_coord(longitude, latitude)?;
         Ok(1)
     }
 }
