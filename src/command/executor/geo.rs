@@ -1,5 +1,6 @@
-use crate::{Command, CommandResponse, Context};
+use crate::{Command, CommandResponse, Context, Value};
 use anyhow::{Result, anyhow};
+use bytes::Bytes;
 use std::sync::Arc;
 
 pub(super) fn execute_geoadd(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
@@ -16,12 +17,34 @@ pub(super) fn execute_geoadd(cmd: &Command, ctx: &Arc<Context>) -> Result<Comman
         .next()
         .ok_or_else(|| anyhow!("geoadd command missing latitude argument!"))?
         .to_double()?;
-    let member = args_iter
+    let place = args_iter
         .next()
-        .ok_or_else(|| anyhow!("geoadd command missing member argument!"))?
+        .ok_or_else(|| anyhow!("geoadd command missing place argument!"))?
         .to_bulk_bytes()?;
 
     let db = ctx.db_ref();
-    let cnt = db.geoadd(key, longitude, latitude, member)?;
+    let cnt = db.geoadd(key, longitude, latitude, place)?;
     Ok(cnt.into())
+}
+
+pub(super) fn execute_geopos(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut args_iter = cmd.args.iter();
+    let key = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("geopos command missing key!"))?
+        .to_bulk_bytes()?;
+    let places = args_iter
+        .map(|val| val.to_bulk_bytes())
+        .collect::<Result<Vec<Bytes>>>()?;
+
+    let db = ctx.db_ref();
+    let coords = db
+        .geopos(key, places)?
+        .into_iter()
+        .map(|opt| match opt {
+            Some(coord) => coord.into(),
+            None => Value::NullArrays,
+        })
+        .collect::<Vec<Value>>();
+    Ok(coords.into())
 }

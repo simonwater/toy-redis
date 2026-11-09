@@ -1,10 +1,12 @@
 mod bitmap;
+mod geo;
 mod list;
 mod redis_object;
 mod signal;
 mod sorted_set;
 mod stream;
 
+use crate::{RdbItem, RdbParser, RdbValue, RedisArgs};
 use anyhow::{Context, Ok, Result, anyhow, bail};
 use bytes::{Bytes, BytesMut};
 use chrono::{Duration, Utc};
@@ -18,9 +20,8 @@ use std::io::{Read, Seek};
 use std::path::PathBuf;
 use std::sync::Arc;
 
+pub(crate) use crate::db::geo::Coordinates;
 pub(crate) use stream::{ReStream, StreamEntry};
-
-use crate::{RdbItem, RdbParser, RdbValue, RedisArgs};
 
 pub const DEFAULT_TTL_MILLIS: i64 = 1000 * 60 * 60 * 24; // 一天
 
@@ -577,14 +578,36 @@ impl MemoryDB {
         Ok(())
     }
 
-    pub fn geoadd(
-        &self,
-        _key: Bytes,
-        longitude: f64,
-        latitude: f64,
-        _member: Bytes,
-    ) -> Result<i64> {
+    pub fn geoadd(&self, key: Bytes, longitude: f64, latitude: f64, place: Bytes) -> Result<i64> {
         self.check_coord(longitude, latitude)?;
-        Ok(1)
+        let score = geo::encode(latitude, longitude) as f64; // u64可直接转f64
+        let cnt = self.zadd(key, vec![(score, place)])?;
+        Ok(cnt)
+    }
+
+    pub fn geopos(&self, key: Bytes, places: Vec<Bytes>) -> Result<Vec<Option<Coordinates>>> {
+        let len = places.len();
+        if let Some(zset) = self.get_zset(&key)? {
+            let mut list = Vec::with_capacity(len);
+            for place in places {
+                if let Some(score) = zset.score(place.clone()) {
+                    if score < 0.0 || score > u64::MAX as f64 {
+                        bail!(
+                            "ERR the score of member: {:?} store in sorted set: {:?} is overflow!",
+                            place,
+                            key
+                        );
+                    }
+
+                    let coord = geo::decode(score as u64);
+                    list.push(Some(coord));
+                } else {
+                    list.push(None);
+                }
+            }
+            return Ok(list);
+        }
+
+        return Ok((0..len).map(|_| None).collect());
     }
 }

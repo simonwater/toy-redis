@@ -1,7 +1,7 @@
 use anyhow::{Result, bail};
 use bytes::{Bytes, BytesMut};
 
-use crate::db::StreamEntry;
+use crate::db::{Coordinates, StreamEntry};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -376,6 +376,26 @@ impl From<Vec<StreamEntry>> for Value {
             frame.push(Value::BulkStrings(id.to_bytes()));
             frame.push(values.into());
             frames.push(Value::Arrays(frame));
+        }
+        Value::Arrays(frames)
+    }
+}
+
+impl From<Coordinates> for Value {
+    fn from(coord: Coordinates) -> Self {
+        let arr: Vec<Value> = vec![
+            Bytes::from(coord.longitude.to_string()).into(),
+            Bytes::from(coord.latitude.to_string()).into(),
+        ];
+        Value::Arrays(arr)
+    }
+}
+
+impl From<Vec<Coordinates>> for Value {
+    fn from(coords: Vec<Coordinates>) -> Self {
+        let mut frames: Vec<Value> = Vec::with_capacity(coords.len());
+        for coord in coords {
+            frames.push(coord.into());
         }
         Value::Arrays(frames)
     }
