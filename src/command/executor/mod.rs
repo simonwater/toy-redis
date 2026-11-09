@@ -55,6 +55,7 @@ pub fn execute(
         "BITOP" => bitmap::execute_bitop(cmd, ctx),
         "GEOADD" => geo::execute_geoadd(cmd, ctx),
         "GEOPOS" => geo::execute_geopos(cmd, ctx),
+        "GEODIST" => geo::execute_geodist(cmd, ctx),
         _ => bail!("unsupported command: {:?}", cmd.bytes),
     }
 }

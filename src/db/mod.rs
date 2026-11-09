@@ -578,6 +578,16 @@ impl MemoryDB {
         Ok(())
     }
 
+    fn check_score(&self, place: Bytes, score: f64) -> Result<()> {
+        if score < 0.0 || score > u64::MAX as f64 {
+            bail!(
+                "ERR the score of member: {:?} store in sorted set is overflow!",
+                place
+            );
+        }
+        Ok(())
+    }
+
     pub fn geoadd(&self, key: Bytes, longitude: f64, latitude: f64, place: Bytes) -> Result<i64> {
         self.check_coord(longitude, latitude)?;
         let score = geo::encode(latitude, longitude) as f64; // u64可直接转f64
@@ -591,14 +601,7 @@ impl MemoryDB {
             let mut list = Vec::with_capacity(len);
             for place in places {
                 if let Some(score) = zset.score(place.clone()) {
-                    if score < 0.0 || score > u64::MAX as f64 {
-                        bail!(
-                            "ERR the score of member: {:?} store in sorted set: {:?} is overflow!",
-                            place,
-                            key
-                        );
-                    }
-
+                    self.check_score(place, score)?;
                     let coord = geo::decode(score as u64);
                     list.push(Some(coord));
                 } else {
@@ -609,5 +612,21 @@ impl MemoryDB {
         }
 
         return Ok((0..len).map(|_| None).collect());
+    }
+
+    pub fn geodist(&self, key: Bytes, place1: Bytes, place2: Bytes) -> Result<f64> {
+        let score1 = self
+            .zscore(key.clone(), place1.clone())?
+            .ok_or_else(|| anyhow!("ERR sorted set:{:?} missing member: {:?}", key, place1))?;
+        self.check_score(place1, score1)?;
+        let score2 = self
+            .zscore(key.clone(), place2.clone())?
+            .ok_or_else(|| anyhow!("ERR sorted set:{:?} missing member: {:?}", key, place2))?;
+        self.check_score(place2, score2)?;
+
+        let coord1 = geo::decode(score1 as u64);
+        let coord2 = geo::decode(score2 as u64);
+        let dist = geo::haversine(coord1, coord2);
+        Ok(dist)
     }
 }

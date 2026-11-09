@@ -48,3 +48,24 @@ pub(super) fn execute_geopos(cmd: &Command, ctx: &Arc<Context>) -> Result<Comman
         .collect::<Vec<Value>>();
     Ok(coords.into())
 }
+
+pub(super) fn execute_geodist(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut args_iter = cmd.args.iter();
+    let key = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("geodist command missing key!"))?
+        .to_bulk_bytes()?;
+    let place1 = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("geodist command missing place argument!"))?
+        .to_bulk_bytes()?;
+    let place2 = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("geodist command neets two place arguments!"))?
+        .to_bulk_bytes()?;
+
+    let db = ctx.db_ref();
+    let dist = db.geodist(key, place1, place2)?;
+    let val: Value = Bytes::from(dist.to_string()).into();
+    Ok(val.into())
+}
