@@ -34,6 +34,12 @@ fn execute_getuser(
     _session: &mut Session,
 ) -> Result<CommandResponse> {
     let flags: Value = Value::Arrays(vec![Bytes::from("nopass").into()]);
-    let result = vec![Bytes::from("flags").into(), flags];
+    let passwords = Value::Arrays(vec![]);
+    let result = vec![
+        Bytes::from("flags").into(),
+        flags,
+        Bytes::from("passwords").into(),
+        passwords,
+    ];
     Ok(result.into())
 }
