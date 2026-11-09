@@ -56,6 +56,7 @@ pub fn execute(
         "GEOADD" => geo::execute_geoadd(cmd, ctx),
         "GEOPOS" => geo::execute_geopos(cmd, ctx),
         "GEODIST" => geo::execute_geodist(cmd, ctx),
+        "GEOSEARCH" => geo::execute_geosearch(cmd, ctx),
         _ => bail!("unsupported command: {:?}", cmd.bytes),
     }
 }

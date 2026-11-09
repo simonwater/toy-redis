@@ -59,8 +59,12 @@ pub(super) fn execute_zrange(cmd: &Command, ctx: &Arc<Context>) -> Result<Comman
         .to_integer()?;
 
     let db = ctx.db_ref();
-    let value = db.zrange(set_key, start, end)?;
-    Ok(value.into())
+    let entrys = db.zrange(set_key, start, end)?;
+    let mut ans = Vec::with_capacity(entrys.len());
+    for entry in entrys {
+        ans.push(entry.member);
+    }
+    Ok(ans.into())
 }
 
 pub(super) fn execute_zcard(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {

@@ -7,7 +7,7 @@ use std::{
 use bytes::Bytes;
 
 #[derive(Debug, Clone)]
-struct ZSetEntry {
+pub struct ZSetEntry {
     pub score: f64,
     pub member: Bytes,
 }
@@ -89,7 +89,7 @@ impl ZSetInner {
         return Some(r);
     }
 
-    fn range(&self, mut start: i64, mut end: i64) -> Vec<Bytes> {
+    fn range(&self, mut start: i64, mut end: i64) -> Vec<ZSetEntry> {
         if start < 0 {
             start = 0.max(self.order_set.len() as i64 + start);
         }
@@ -107,7 +107,7 @@ impl ZSetInner {
             .iter()
             .skip(start)
             .take(count)
-            .map(|entry| entry.member.clone())
+            .map(|e| e.clone())
             .collect()
     }
 
@@ -156,7 +156,7 @@ impl SortedSet {
         set.rank(member)
     }
 
-    pub fn range(&self, start: i64, end: i64) -> Vec<Bytes> {
+    pub fn range(&self, start: i64, end: i64) -> Vec<ZSetEntry> {
         let set = self.zset.read().unwrap();
         set.range(start, end)
     }

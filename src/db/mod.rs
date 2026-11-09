@@ -6,6 +6,7 @@ mod signal;
 mod sorted_set;
 mod stream;
 
+use crate::db::sorted_set::ZSetEntry;
 use crate::{RdbItem, RdbParser, RdbValue, RedisArgs};
 use anyhow::{Context, Ok, Result, anyhow, bail};
 use bytes::{Bytes, BytesMut};
@@ -472,7 +473,7 @@ impl MemoryDB {
         Ok(None)
     }
 
-    pub fn zrange(&self, set_key: Bytes, start: i64, end: i64) -> Result<Vec<Bytes>> {
+    pub fn zrange(&self, set_key: Bytes, start: i64, end: i64) -> Result<Vec<ZSetEntry>> {
         if let Some(zset) = self.get_zset(&set_key)? {
             let range = zset.range(start, end);
             return Ok(range);
@@ -626,7 +627,29 @@ impl MemoryDB {
 
         let coord1 = geo::decode(score1 as u64);
         let coord2 = geo::decode(score2 as u64);
-        let dist = geo::haversine(coord1, coord2);
+        let dist = geo::haversine(&coord1, &coord2);
         Ok(dist)
+    }
+
+    // 仅支持以半径(m)进行搜索
+    pub fn geosearch(
+        &self,
+        key: Bytes,
+        longitude: f64,
+        latitude: f64,
+        radius: f64,
+    ) -> Result<Vec<Bytes>> {
+        let mut ans = Vec::with_capacity(16);
+        let entrys = self.zrange(key, 0, -1)?;
+        let src_coord = Coordinates::new(longitude, latitude);
+        for entry in entrys {
+            self.check_score(entry.member.clone(), entry.score)?;
+            let dest_coord: Coordinates = geo::decode(entry.score as u64);
+            let dist = geo::haversine(&src_coord, &dest_coord);
+            if dist <= radius {
+                ans.push(entry.member);
+            }
+        }
+        Ok(ans)
     }
 }

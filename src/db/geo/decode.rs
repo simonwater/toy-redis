@@ -12,6 +12,15 @@ pub struct Coordinates {
     pub longitude: f64,
 }
 
+impl Coordinates {
+    pub fn new(longitude: f64, latitude: f64) -> Self {
+        Self {
+            longitude,
+            latitude,
+        }
+    }
+}
+
 fn compact_int64_to_int32(v: u64) -> u32 {
     let mut result = v & 0x5555555555555555;
     result = (result | (result >> 1)) & 0x3333333333333333;

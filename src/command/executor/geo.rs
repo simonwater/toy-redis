@@ -69,3 +69,39 @@ pub(super) fn execute_geodist(cmd: &Command, ctx: &Arc<Context>) -> Result<Comma
     let val: Value = Bytes::from(dist.to_string()).into();
     Ok(val.into())
 }
+
+pub(super) fn execute_geosearch(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let mut args_iter = cmd.args.iter();
+    let key = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("geosearch command missing key!"))?
+        .to_bulk_bytes()?;
+
+    // center point coordinate mode option: FROMLONLAT
+    let _from_xxx = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("geosearch command missing search mode argument!"))?
+        .to_bulk_bytes()?;
+    let longitude = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("geosearch command missing longitude argument!"))?
+        .to_double()?;
+    let latitude = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("geosearch command missing latitude argument!"))?
+        .to_double()?;
+
+    // searching circular area mode option: BYRADIUS
+    let _by_xxx = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("geosearch command missing byradius argument!"))?
+        .to_bulk_bytes()?;
+    let radius = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("geosearch command neets radius arguments!"))?
+        .to_double()?;
+
+    let db = ctx.db_ref();
+    let targets = db.geosearch(key, longitude, latitude, radius)?;
+    Ok(targets.into())
+}

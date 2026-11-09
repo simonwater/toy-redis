@@ -5,7 +5,7 @@ pub use decode::Coordinates;
 pub(crate) use decode::decode;
 pub(crate) use encode::encode;
 
-pub(crate) fn haversine(origin: Coordinates, destination: Coordinates) -> f64 {
+pub(crate) fn haversine(origin: &Coordinates, destination: &Coordinates) -> f64 {
     const R: f64 = 6372797.560856;
 
     let lat1 = origin.latitude.to_radians();
