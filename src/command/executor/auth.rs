@@ -33,6 +33,7 @@ fn execute_getuser(
     _ctx: &Arc<Context>,
     _session: &mut Session,
 ) -> Result<CommandResponse> {
-    let result = vec![Bytes::from("flags").into(), Value::EmptyArrays];
+    let flags: Value = Value::Arrays(vec![Bytes::from("nopass").into()]);
+    let result = vec![Bytes::from("flags").into(), flags];
     Ok(result.into())
 }
