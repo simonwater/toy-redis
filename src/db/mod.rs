@@ -560,3 +560,15 @@ impl MemoryDB {
         return Ok(len as i64);
     }
 }
+
+impl MemoryDB {
+    pub fn geoadd(
+        &self,
+        _key: Bytes,
+        _longitude: f64,
+        _latitude: f64,
+        _member: Bytes,
+    ) -> Result<i64> {
+        Ok(1)
+    }
+}

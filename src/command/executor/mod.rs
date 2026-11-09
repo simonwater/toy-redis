@@ -1,5 +1,6 @@
 mod basic;
 mod bitmap;
+mod geo;
 mod list;
 mod pub_sub;
 mod repl_sync;
@@ -52,6 +53,7 @@ pub fn execute(
         "GETBIT" => bitmap::execute_getbit(cmd, ctx),
         "BITCOUNT" => bitmap::execute_bitcount(cmd, ctx),
         "BITOP" => bitmap::execute_bitop(cmd, ctx),
+        "GEOADD" => geo::execute_geoadd(cmd, ctx),
         _ => bail!("unsupported command: {:?}", cmd.bytes),
     }
 }
