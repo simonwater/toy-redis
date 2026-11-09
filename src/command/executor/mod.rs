@@ -1,3 +1,4 @@
+mod auth;
 mod basic;
 mod bitmap;
 mod geo;
@@ -57,6 +58,7 @@ pub fn execute(
         "GEOPOS" => geo::execute_geopos(cmd, ctx),
         "GEODIST" => geo::execute_geodist(cmd, ctx),
         "GEOSEARCH" => geo::execute_geosearch(cmd, ctx),
+        "ACL" => auth::execute_acl(cmd, ctx),
         _ => bail!("unsupported command: {:?}", cmd.bytes),
     }
 }
