@@ -58,7 +58,7 @@ pub fn execute(
         "GEOPOS" => geo::execute_geopos(cmd, ctx),
         "GEODIST" => geo::execute_geodist(cmd, ctx),
         "GEOSEARCH" => geo::execute_geosearch(cmd, ctx),
-        "ACL" => auth::execute_acl(cmd, ctx),
+        "ACL" => auth::execute_acl(cmd, ctx, session),
         _ => bail!("unsupported command: {:?}", cmd.bytes),
     }
 }
