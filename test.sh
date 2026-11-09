@@ -34,6 +34,8 @@ STAGES=(
   "bq9" "qj1" "yj2" "pk5" "yf6" "nx3" "hv4" "dk2" "fr8"
   # Geospatial Commands
   "zt4" "ck3" "tn5" "cr3" "xg4" "hb5" "ek6" "rm9"
+  # Authentication
+  "jn4" "gx8" "ql6" "pl7" "uv9" "hz3" "nm2" "ws7"
 )
 
 TARGET_SLUG=$1
