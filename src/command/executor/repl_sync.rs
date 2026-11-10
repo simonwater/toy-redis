@@ -34,6 +34,12 @@ fn empty_rdb() -> Vec<u8> {
 }
 
 pub(super) fn execute_wait(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandResponse> {
+    let repl_hub = ctx.repl_hub();
+    let repl_len = repl_hub.len() as i64;
+    if repl_hub.repl_command_count() == 0 {
+        return Ok(repl_len.into());
+    }
+
     let mut arg_iter = cmd.args.iter();
     let numreplicas = arg_iter
         .next()
@@ -51,9 +57,9 @@ pub(super) fn execute_wait(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandR
         respond: sender.clone(),
         timeout: total_time,
     };
-    ctx.repl_hub().prop_replmsg(msg);
+    repl_hub.prop_replmsg(msg);
 
-    let numreplicas = numreplicas.min(ctx.repl_hub().len() as i64);
+    let numreplicas = numreplicas.min(repl_len);
     let mut res = 0;
     let start = Instant::now();
     loop {

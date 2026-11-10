@@ -3,6 +3,7 @@ use anyhow::{Result, bail};
 use bytes::Bytes;
 use std::sync::Arc;
 use std::sync::RwLock;
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::thread;
 use std::time::Duration;
@@ -18,12 +19,14 @@ pub enum ReplMsg {
 
 pub struct ReplHub {
     repl_senders: RwLock<Vec<Sender<ReplMsg>>>,
+    repl_cmd_cnt: AtomicI64,
 }
 
 impl ReplHub {
     pub fn new() -> Self {
         Self {
             repl_senders: RwLock::new(Vec::with_capacity(8)),
+            repl_cmd_cnt: AtomicI64::new(0),
         }
     }
 
@@ -91,10 +94,17 @@ impl ReplHub {
     }
 
     pub fn prop_replmsg(&self, cmd: ReplMsg) {
+        if matches!(cmd, ReplMsg::Propagation(_)) {
+            self.repl_cmd_cnt.fetch_add(1, Ordering::Relaxed);
+        }
         let senders = self.repl_senders.read().unwrap();
         for sender in senders.iter() {
             sender.send(cmd.clone()).unwrap();
         }
+    }
+
+    pub fn repl_command_count(&self) -> i64 {
+        self.repl_cmd_cnt.load(Ordering::Relaxed)
     }
 
     pub fn len(&self) -> usize {

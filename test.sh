@@ -6,7 +6,7 @@
 # 指向你的 Go Tester 二进制文件路径（如果在当前目录下，直接填 ./tester）
 TESTER_BIN="./tester_mac_x86.out"
 
-# 按顺序定义 Shell 教程的所有 Stage Slug
+# 按顺序定义 Stage Slug
 STAGES=(
   # Base
   "jm1" "rg2" "wy1" "zu2" "qq0" "la7" "yz1"
@@ -20,8 +20,7 @@ STAGES=(
   "jb7" "jq9" "mh8" "fp0" "uo9" "bn1" "fn4" "hq1"
   # Replication
   "bw1" "ye5" "hc6" "xc1" "gl7" "eh4" "ju6" "fj0" "vm3" "cf8" "zn8" "hd5" "yg4"
-  "xv6" "yd3" "my8" # "tu8" 
-  "na2"
+  "xv6" "yd3" "my8" "tu8" "na2"
   # RDB Persistence
   "zg5" "jz6" "gc6" "jw4" "dq3" "sm4"
   # AOF Persistence
