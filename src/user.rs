@@ -46,7 +46,8 @@ impl UserStore {
     pub fn set_password(&mut self, password: &str) -> Bytes {
         self.flags.set_nopass(false);
         let pass_hash = Sha256::digest(password.as_bytes());
-        let bytes: Bytes = Bytes::from(pass_hash.to_vec());
+        let hex_string = format!("{:x}", pass_hash);
+        let bytes: Bytes = Bytes::from(hex_string);
         self.passwords.push(bytes.clone());
         bytes
     }
