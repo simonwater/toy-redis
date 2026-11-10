@@ -2,7 +2,7 @@ mod session;
 
 pub use session::Session;
 
-use crate::{AofHandler, ChennalsHub, Information, MemoryDB, ReplHub};
+use crate::{AofHandler, ChennalsHub, Information, MemoryDB, ReplHub, user::UsersHub};
 use anyhow::{Result, anyhow};
 use clap::Parser;
 
@@ -49,6 +49,7 @@ pub struct Context {
     repl_hub: ReplHub,
     aof_handler: AofHandler,
     chennals_hub: ChennalsHub,
+    users_hub: UsersHub,
 }
 
 impl Context {
@@ -72,6 +73,7 @@ impl Context {
         };
         let aof_handler = AofHandler::new(&args)?;
         let chennals_hub = ChennalsHub::new();
+        let users_hub = UsersHub::new();
 
         Ok(Self {
             db,
@@ -80,6 +82,7 @@ impl Context {
             repl_hub,
             aof_handler,
             chennals_hub,
+            users_hub,
         })
     }
 
@@ -105,6 +108,10 @@ impl Context {
 
     pub fn chennals_hub(&self) -> &ChennalsHub {
         &self.chennals_hub
+    }
+
+    pub fn users_hub(&self) -> &UsersHub {
+        &self.users_hub
     }
 
     pub fn is_master(&self) -> bool {

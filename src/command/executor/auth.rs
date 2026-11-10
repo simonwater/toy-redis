@@ -1,4 +1,4 @@
-use crate::{Command, CommandResponse, Context, Session, Value};
+use crate::{Command, CommandResponse, Context, Session};
 use anyhow::{Result, anyhow, bail};
 use bytes::Bytes;
 use std::sync::Arc;
@@ -16,7 +16,7 @@ pub(super) fn execute_acl(
     match arg1.to_uppercase().as_str() {
         "WHOAMI" => execute_whoami(cmd, ctx, session),
         "GETUSER" => execute_getuser(cmd, ctx, session),
-        _ => bail!("ERR acl command is not support {} argument", arg1),
+        _ => bail!("ERR acl command does not support {} argument", arg1),
     }
 }
 
@@ -30,16 +30,11 @@ fn execute_whoami(
 
 fn execute_getuser(
     _cmd: &Command,
-    _ctx: &Arc<Context>,
-    _session: &mut Session,
+    ctx: &Arc<Context>,
+    session: &mut Session,
 ) -> Result<CommandResponse> {
-    let flags: Value = Value::Arrays(vec![Bytes::from("nopass").into()]);
-    let passwords = Value::Arrays(vec![]);
-    let result = vec![
-        Bytes::from("flags").into(),
-        flags,
-        Bytes::from("passwords").into(),
-        passwords,
-    ];
-    Ok(result.into())
+    let users_hub = ctx.users_hub();
+    let cur_user = users_hub.current_user(session);
+    let user_value = cur_user.to_value();
+    Ok(user_value.into())
 }

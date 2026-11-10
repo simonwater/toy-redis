@@ -9,6 +9,7 @@ mod rdb;
 mod repl_hub;
 mod resp;
 mod subscribe;
+mod user;
 
 pub use aof::AofHandler;
 pub use command::{Command, executor as CmdExecutor};
