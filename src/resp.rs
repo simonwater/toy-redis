@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::{Result, bail};
 use bytes::{Bytes, BytesMut};
 
@@ -362,6 +364,16 @@ impl From<Vec<Value>> for Value {
 impl From<Vec<Bytes>> for Value {
     fn from(bytes_vec: Vec<Bytes>) -> Self {
         let frames: Vec<Value> = bytes_vec.into_iter().map(Value::BulkStrings).collect();
+        frames.into()
+    }
+}
+
+impl From<HashSet<Bytes>> for Value {
+    fn from(bytes_set: HashSet<Bytes>) -> Self {
+        let mut frames = Vec::with_capacity(bytes_set.len());
+        for byte in bytes_set {
+            frames.push(byte);
+        }
         frames.into()
     }
 }

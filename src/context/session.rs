@@ -1,12 +1,13 @@
 use anyhow::{Result, anyhow};
 
-use crate::{ConnectionHandler, Subscription, Transaction, Value};
+use crate::{ConnectionHandler, Subscription, Transaction, Value, user::UserToken};
 
 /// 客户端状态
 pub struct Session {
     trans: Option<Transaction>,
     conn: Option<ConnectionHandler>,
     subscribe: Option<Subscription>,
+    user_token: Option<UserToken>,
 }
 
 impl Session {
@@ -15,6 +16,7 @@ impl Session {
             trans: None,
             subscribe: None,
             conn: None,
+            user_token: None,
         }
     }
 
@@ -78,5 +80,17 @@ impl Session {
 
     pub fn write_value(&mut self, value: Value) -> Result<()> {
         self.connection_mut()?.write_all(&value.to_bytes())
+    }
+
+    pub fn set_user_token(&mut self, token: UserToken) {
+        self.user_token = Some(token);
+    }
+
+    pub fn current_user_token(&self) -> Option<&UserToken> {
+        self.user_token.as_ref()
+    }
+
+    pub fn is_authed(&self) -> bool {
+        self.user_token.is_some()
     }
 }

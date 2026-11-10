@@ -1,6 +1,6 @@
+use crate::user::UserToken;
 use crate::{Command, CommandResponse, Context, Session, Value};
 use anyhow::{Result, anyhow, bail};
-use bytes::Bytes;
 use std::slice::Iter;
 use std::sync::Arc;
 
@@ -24,10 +24,12 @@ pub(super) fn execute_acl(
 
 fn execute_whoami(
     mut _args_iter: Iter<Value>,
-    _ctx: &Arc<Context>,
-    _session: &mut Session,
+    ctx: &Arc<Context>,
+    session: &mut Session,
 ) -> Result<CommandResponse> {
-    Ok(Bytes::from("default").into())
+    let users_hub = ctx.users_hub();
+    let cur_user = users_hub.current_user(session)?;
+    Ok(cur_user.name().into())
 }
 
 fn execute_getuser(
@@ -36,7 +38,7 @@ fn execute_getuser(
     session: &mut Session,
 ) -> Result<CommandResponse> {
     let users_hub = ctx.users_hub();
-    let cur_user = users_hub.current_user(session);
+    let cur_user = users_hub.current_user(session)?;
     let user_value = cur_user.to_value();
     Ok(user_value.into())
 }
@@ -44,7 +46,7 @@ fn execute_getuser(
 fn execute_setuser(
     mut args_iter: Iter<Value>,
     ctx: &Arc<Context>,
-    _session: &mut Session,
+    session: &mut Session,
 ) -> Result<CommandResponse> {
     let name = args_iter
         .next()
@@ -56,7 +58,7 @@ fn execute_setuser(
         .to_string()?;
 
     let users_hub = ctx.users_hub();
-    let user = users_hub.get_user(&name).ok_or_else(|| {
+    let user = users_hub.get_user_by_name(&name).ok_or_else(|| {
         anyhow!(
             "ERR acl setuser command error, user: {:?} is not exist",
             name
@@ -65,9 +67,33 @@ fn execute_setuser(
 
     match &rule.as_bytes()[0] {
         b'>' => {
-            user.set_password(&rule[1..]);
+            let pwd_bytes = user.set_password(&rule[1..])?;
+            if !session.is_authed() {
+                // 设置密码时如果当前用户没认证，直接认证为当前用户
+                let token = UserToken::new(name, pwd_bytes);
+                users_hub.auth_user_token(user, token, session);
+            }
             Ok("OK".into())
         }
         _ => bail!("ERR acl setuser command does not support {} rule", rule),
     }
+}
+
+pub(super) fn execute_auth(
+    cmd: &Command,
+    ctx: &Arc<Context>,
+    session: &mut Session,
+) -> Result<CommandResponse> {
+    let mut args_iter = cmd.args.iter();
+    let name = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("ERR auth command missing user name argument!"))?
+        .to_bulk_bytes()?;
+    let password = args_iter
+        .next()
+        .ok_or_else(|| anyhow!("ERR auth command missing password argument!"))?
+        .to_string()?;
+    let users_hub = ctx.users_hub();
+    users_hub.auth(&name, &password, session)?;
+    Ok("OK".into())
 }
