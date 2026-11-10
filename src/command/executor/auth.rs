@@ -68,7 +68,7 @@ fn execute_setuser(
     match &rule.as_bytes()[0] {
         b'>' => {
             let pwd_bytes = user.set_password(&rule[1..])?;
-            if !session.is_authed() {
+            if session.current_user_token().is_none() {
                 // 设置密码时如果当前用户没认证，直接认证为当前用户
                 let token = UserToken::new(name, pwd_bytes);
                 users_hub.auth_user_token(user, token, session);

@@ -183,6 +183,16 @@ impl UsersHub {
         }
     }
 
+    pub fn is_authed(&self, session: &Session) -> bool {
+        if let Some(user_token) = session.current_user_token() {
+            return self.get_user_by_token(user_token).is_some();
+        } else {
+            // no auth, check default user
+            let default_user = self.get_user_by_name(&Bytes::from("default")).unwrap();
+            return default_user.is_nopass();
+        }
+    }
+
     pub fn auth(&self, name: &Bytes, password: &str, session: &mut Session) -> Result<()> {
         let user = self
             .get_user_by_name(name)

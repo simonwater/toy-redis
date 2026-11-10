@@ -89,8 +89,4 @@ impl Session {
     pub fn current_user_token(&self) -> Option<&UserToken> {
         self.user_token.as_ref()
     }
-
-    pub fn is_authed(&self) -> bool {
-        self.user_token.is_some()
-    }
 }

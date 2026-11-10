@@ -1,4 +1,5 @@
 mod aof;
+mod auth;
 mod repl_conf;
 mod replica;
 mod trans;
@@ -8,6 +9,7 @@ use anyhow::Result;
 use std::sync::Arc;
 
 pub use aof::AofMiddleware;
+pub use auth::AuthMiddleware;
 pub use repl_conf::{ReplConfMasterMiddleware, ReplConfSlaveMiddleware};
 pub use replica::ReplicaMiddleware;
 pub use trans::{TransMiddleware, Transaction};
