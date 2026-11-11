@@ -378,16 +378,21 @@ impl MemoryDB {
         if self.try_xread_without_empty(&stream_keys, &entry_ids, &mut results)? {
             return Ok(Some(results));
         }
+
         let signal = Arc::new(Signal::new());
         self.register_signal(&stream_keys, &signal)?;
         loop {
-            let is_notified = signal.wait_until(expr_at);
-            // 超时边界的数据都满足要求
             if self.try_xread_without_empty(&stream_keys, &entry_ids, &mut results)? {
                 return Ok(Some(results));
             }
+
+            let is_notified = signal.wait_until(expr_at);
+
             if !is_notified {
                 // 超时
+                if self.try_xread_without_empty(&stream_keys, &entry_ids, &mut results)? {
+                    return Ok(Some(results));
+                }
                 return Ok(None);
             }
         }
