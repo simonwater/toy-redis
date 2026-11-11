@@ -383,12 +383,15 @@ impl MemoryDB {
         self.register_signal(&stream_keys, &signal)?;
         loop {
             if self.try_xread_without_empty(&stream_keys, &entry_ids, &mut results)? {
+                // 退出前注销等待信号，避免过期信号残留占用后续XADD的通知开销
+                self.unregister_signal(&stream_keys, &signal)?;
                 return Ok(Some(results));
             }
 
             let is_notified = signal.wait_until(expr_at);
 
             if !is_notified {
+                self.unregister_signal(&stream_keys, &signal)?;
                 // 超时
                 if self.try_xread_without_empty(&stream_keys, &entry_ids, &mut results)? {
                     return Ok(Some(results));
@@ -421,20 +424,30 @@ impl MemoryDB {
         Ok(())
     }
 
+    fn unregister_signal(&self, stream_keys: &[Bytes], signal: &Arc<Signal>) -> Result<()> {
+        for stream_key in stream_keys {
+            let stream_arc = self.get_or_create_stream(stream_key.clone())?;
+            stream_arc.unregister_waiter(Arc::clone(signal));
+        }
+        Ok(())
+    }
+
     fn try_xread_without_empty(
         &self,
         stream_keys: &[Bytes],
         entry_ids: &[Bytes],
         results: &mut Vec<(Bytes, Vec<StreamEntry>)>,
     ) -> Result<bool> {
+        let mut found = false;
         for (stream_key, id) in stream_keys.iter().zip(entry_ids) {
             let stream_arc = self.get_or_create_stream(stream_key.clone())?;
             let entrys = stream_arc.xread(id)?;
             if !entrys.is_empty() {
                 results.push((stream_key.clone(), entrys));
+                found = true;
             }
         }
-        Ok(!results.is_empty())
+        Ok(found)
     }
 }
 

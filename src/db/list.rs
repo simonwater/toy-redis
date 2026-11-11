@@ -153,7 +153,7 @@ impl ReList {
                 return Some(value);
             }
 
-            thread::park_timeout(total_dur - pasted_dur); // 等待被唤起
+            thread::park_timeout(total_dur.saturating_sub(pasted_dur)); // 等待被唤起
             // 无论被唤醒还是超时都移除自身句柄，避免过期句柄消耗后续push的通知名额
             self.unregister_current();
         }
