@@ -4,7 +4,7 @@
 # 此脚本的作用是支持类似官方线上的 --previous 模式，指定一个关卡，然后生成该关卡及以前所有关卡的json，再运行tester
 
 # 指向你的 Go Tester 二进制文件路径（如果在当前目录下，直接填 ./tester）
-TESTER_BIN="./tester_mac_x86.out"
+TESTER_BIN="./tester.out"
 
 # 按顺序定义 Stage Slug
 STAGES=(
@@ -48,7 +48,7 @@ if [ -z "$TARGET_SLUG" ]; then
   # echo "Usage: ./test.sh <stage_slug> [--previous|-p]"
   # echo "Example: ./test.sh xk3 --previous"
   # exit 1
-  TARGET_SLUG="wy1"
+  TARGET_SLUG="ws7"
   PREVIOUS=true
 fi
 
