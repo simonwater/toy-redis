@@ -130,15 +130,7 @@ impl ReList {
         let total_dur = Duration::from_secs_f64(timeout_in_sec);
 
         loop {
-            let value = {
-                let mut list_guard = self.list.write().unwrap();
-                if is_front {
-                    list_guard.pop_front()
-                } else {
-                    list_guard.pop_back()
-                }
-            };
-            if let Some(value) = value {
+            if let Some(value) = self.try_pop(is_front) {
                 return Some(value);
             }
 
@@ -147,12 +139,38 @@ impl ReList {
                 return None;
             }
 
+            // 先注册再二次检查，关闭"检查失败到注册完成"之间的竞态窗口。
+            // 若push发生在注册之前，push方在waiting_threads中
+            // 看不到本线程，不会发起unpark，本线程将睡到超时。
             self.waiting_threads
                 .lock()
                 .unwrap()
                 .push_back(thread::current());
 
+            if let Some(value) = self.try_pop(is_front) {
+                // 已拿到数据，从等待队列移除自身，避免推入方unpark一个不再等待的线程
+                self.unregister_current();
+                return Some(value);
+            }
+
             thread::park_timeout(total_dur - pasted_dur); // 等待被唤起
+            // 无论被唤醒还是超时都移除自身句柄，避免过期句柄消耗后续push的通知名额
+            self.unregister_current();
         }
+    }
+
+    fn try_pop(&self, is_front: bool) -> Option<Bytes> {
+        let mut list_guard = self.list.write().unwrap();
+        if is_front {
+            list_guard.pop_front()
+        } else {
+            list_guard.pop_back()
+        }
+    }
+
+    fn unregister_current(&self) {
+        let cur_id = thread::current().id();
+        let mut threads_guard = self.waiting_threads.lock().unwrap();
+        threads_guard.retain(|t| t.id() != cur_id);
     }
 }
