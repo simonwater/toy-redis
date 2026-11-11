@@ -37,6 +37,9 @@ pub(super) fn get_bit(bytes: Bytes, offset: usize) -> u8 {
 }
 
 pub(super) fn bit_count(bytes: Bytes, mut start: i64, mut end: i64) -> i64 {
+    if bytes.is_empty() {
+        return 0;
+    }
     if start < 0 {
         start = 0.max(bytes.len() as i64 + start);
     }
@@ -46,6 +49,9 @@ pub(super) fn bit_count(bytes: Bytes, mut start: i64, mut end: i64) -> i64 {
     let start = start as usize;
     let mut end = end as usize;
     end = end.min(bytes.len() - 1);
+    if start > end {
+        return 0;
+    }
     bytes[start..=end]
         .iter()
         .map(|b| b.count_ones())

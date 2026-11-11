@@ -135,6 +135,7 @@ pub(super) fn execute_keys(cmd: &Command, ctx: &Arc<Context>) -> Result<CommandR
     Ok(keys.into())
 }
 
+// 仅用于测试，官方并不支持 FML 命令
 pub(super) fn execute_fml(_cmd: &Command, _ctx: &Arc<Context>) -> Result<CommandResponse> {
     let mut srcs = Vec::new();
     srcs.push("x = a + b * c");

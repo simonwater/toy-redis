@@ -90,6 +90,9 @@ impl ZSetInner {
     }
 
     fn range(&self, mut start: i64, mut end: i64) -> Vec<ZSetEntry> {
+        if self.order_set.is_empty() {
+            return Vec::new();
+        }
         if start < 0 {
             start = 0.max(self.order_set.len() as i64 + start);
         }

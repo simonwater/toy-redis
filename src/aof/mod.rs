@@ -142,14 +142,19 @@ impl AofHandler {
                     return Ok(());
                 }
 
-                let (value, bytes) = Value::from(&mut buffer)?;
-                match value {
-                    Value::Arrays(values) => {
+                match Value::from(&mut buffer)? {
+                    Some((Value::Arrays(values), bytes)) => {
                         let command = Command::new(values, bytes)?;
                         // 直接执行，无需处理响应
                         let _response = CmdExecutor::execute(&command, ctx, &mut session)?;
                     }
-                    _ => bail!("command value must be resp array."),
+                    Some(_) => bail!("command value must be resp array."),
+                    None => {
+                        // 帧不完整: 若文件已读完则说明AOF被截断
+                        if read_cnt == 0 {
+                            bail!("aof file truncated, incomplete command frame.");
+                        }
+                    }
                 }
             }
         }

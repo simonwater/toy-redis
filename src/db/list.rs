@@ -51,6 +51,9 @@ impl ReList {
     pub fn range(&self, mut start: i64, mut end: i64) -> Vec<Bytes> {
         let mut ans = Vec::new();
         let list_guard = self.list.read().unwrap();
+        if list_guard.is_empty() {
+            return ans;
+        }
         if start < 0 {
             start = 0.max(list_guard.len() as i64 + start);
         }
@@ -60,6 +63,9 @@ impl ReList {
         let start = start as usize;
         let mut end = end as usize;
         end = end.min(list_guard.len() - 1);
+        if start > end {
+            return ans;
+        }
         for i in start..=end {
             ans.push(list_guard[i].clone());
         }

@@ -4,11 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anyhow = "1.0.59"                                   # error handling
-bytes = "1.12.0"                                    # helps manage buffers
+anyhow = "1.0.59"                                 # error handling
+bytes = "1.12.0"                                  # helps manage buffers
 chrono = "0.4"
-thiserror = "1.0.32"                                # error handling
-tokio = { version = "1.23.0", features = ["full"] } # async networking
 dashmap = "6.2.1"
 clap = { version = "4.5", features = ["derive"] }
 rspression = "0.2.0"

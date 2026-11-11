@@ -5,6 +5,23 @@ use bytes::{Bytes, BytesMut};
 
 use crate::db::{Coordinates, StreamEntry};
 
+/// 标记输入数据不完整（需凑齐一个完整的RESP帧才能解析），
+/// 与畸形输入区分开，调用方可以继续读入更多数据后重试
+#[derive(Debug, Clone, Copy)]
+struct IncompleteInput;
+
+impl std::fmt::Display for IncompleteInput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "incomplete resp frame, need more data")
+    }
+}
+
+impl std::error::Error for IncompleteInput {}
+
+fn incomplete() -> anyhow::Error {
+    anyhow::Error::new(IncompleteInput)
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     SimpleStrings(String),
@@ -19,13 +36,26 @@ pub enum Value {
 }
 
 impl Value {
-    // input中需要完整包含一个命令
-    pub fn from(input: &mut BytesMut) -> Result<(Value, Bytes)> {
+    /// 从input中解析一个完整的RESP值。
+    /// - Ok(Some((value, bytes))): 解析成功，bytes为消耗掉的原始字节
+    /// - Ok(None): 数据不完整，调用方继续读入更多数据后重试
+    /// - Err(e): 输入畸形
+    pub fn from(input: &mut BytesMut) -> Result<Option<(Value, Bytes)>> {
         let mut parser = Parser::new(input);
-        let value = parser.parse()?;
-        let pos = parser.pos;
-        let parsed_bytes = input.split_to(pos).freeze();
-        Ok((value, parsed_bytes))
+        match parser.parse() {
+            Ok(value) => {
+                let pos = parser.pos;
+                let parsed_bytes = input.split_to(pos).freeze();
+                Ok(Some((value, parsed_bytes)))
+            }
+            Err(e) => {
+                if e.downcast_ref::<IncompleteInput>().is_some() {
+                    Ok(None)
+                } else {
+                    Err(e)
+                }
+            }
+        }
     }
 
     pub fn serilize(&self, out: &mut Vec<u8>) {
@@ -152,13 +182,16 @@ impl<'a> Parser<'a> {
 
     pub fn parse(&mut self) -> Result<Value> {
         if self.input.is_empty() {
-            bail!("can not parse empty input")
+            return Err(incomplete());
         }
         self.pos = 0;
         self.parse_value()
     }
 
     fn parse_value(&mut self) -> Result<Value> {
+        if self.pos >= self.input.len() {
+            return Err(incomplete());
+        }
         let vt = self.input[self.pos];
         match vt {
             b'+' => self.simple_string(),
@@ -197,11 +230,15 @@ impl<'a> Parser<'a> {
     fn bulk_string(&mut self) -> Result<Value> {
         self.consume(b'$')?;
         let len = self.parse_i64()?;
+        self.consume_terminator()?;
         if len < 0 {
             return Ok(Value::NullBulkStrings);
         }
         let len = len as usize;
-        self.consume_terminator()?;
+        // 载荷数据不完整时等待更多数据，避免越界切片
+        if len > self.input.len() - self.pos {
+            return Err(incomplete());
+        }
         let val = &self.input[self.pos..self.pos + len];
         let bytes = Bytes::copy_from_slice(val); // todo: 零拷贝优化·
         self.pos += len;
@@ -221,6 +258,10 @@ impl<'a> Parser<'a> {
         }
 
         let len = len as usize;
+        // 声明元素数超过剩余字节数时必然不完整，等待更多数据（同时避免恶意大容量分配）
+        if len > self.input.len() - self.pos {
+            return Err(incomplete());
+        }
         let mut vals = Vec::with_capacity(len);
         for _ in 0..len {
             let val = self.parse_value()?;
@@ -249,6 +290,9 @@ impl<'a> Parser<'a> {
         }
         let mut val: i64 = 0;
         while !self.is_terminator() {
+            if self.pos >= self.input.len() {
+                return Err(incomplete());
+            }
             let cur = self.advance();
             let num = (cur - b'0') as i64;
             if num < 0 || num > 9 {
@@ -265,6 +309,9 @@ impl<'a> Parser<'a> {
     fn parse_string(&mut self) -> Result<String> {
         let start = self.pos;
         while !self.is_terminator() {
+            if self.pos >= self.input.len() {
+                return Err(incomplete());
+            }
             self.pos += 1;
         }
         let s = String::from_utf8(self.input[start..self.pos].to_vec())?;
@@ -272,7 +319,8 @@ impl<'a> Parser<'a> {
     }
 
     fn is_terminator(&self) -> bool {
-        &self.input[self.pos..self.pos + 2] == b"\r\n"
+        // 基于peek实现，输入末尾不越界
+        self.peek_at(self.pos) == b'\r' && self.peek_at(self.pos + 1) == b'\n'
     }
 
     fn advance(&mut self) -> u8 {
@@ -310,6 +358,9 @@ impl<'a> Parser<'a> {
     }
 
     fn consume(&mut self, val: u8) -> Result<()> {
+        if self.pos >= self.input.len() {
+            return Err(incomplete());
+        }
         let cur = self.peek();
         if cur != val {
             bail!(
@@ -420,14 +471,14 @@ mod tests {
     #[test]
     fn test_simple() {
         let mut s = BytesMut::from("*1\r\n$4\r\nPING\r\n");
-        let value = Value::from(&mut s).unwrap();
+        let (value, _) = Value::from(&mut s).unwrap().unwrap();
         println!("{:?}", value);
     }
 
     #[test]
     fn test_arr() {
         let mut s = BytesMut::from("*2\r\n*3\r\n:1\r\n:2\r\n:3\r\n*2\r\n+Hello\r\n-World\r\n");
-        let value = Value::from(&mut s).unwrap();
+        let (value, _) = Value::from(&mut s).unwrap().unwrap();
         println!("{:?}", value);
     }
 
@@ -435,7 +486,49 @@ mod tests {
     fn test_rdb() {
         let mut bytes_mut = BytesMut::with_capacity(1024);
         bytes_mut.extend_from_slice(b"$88\r\nREDIS0011\xfa\tredis-ver\x057.2.0\xfa\nredis-bits\xc0@\xfa\x05ctime\xc2m\x08\xbce\xfa\x08used-mem\xc2\xb0\xc4\x10\0\xfa\x08aof-base\xc0\0\xff\xf0n;\xfe\xc0\xffZ\xa2");
-        let value = Value::from(&mut bytes_mut).unwrap();
+        let (value, _) = Value::from(&mut bytes_mut).unwrap().unwrap();
         println!("{:?}", value);
+    }
+
+    #[test]
+    fn test_incomplete() {
+        // 不完整的bulk string载荷
+        let mut s = BytesMut::from("$5\r\nabc");
+        assert!(Value::from(&mut s).unwrap().is_none());
+
+        // 不完整数组
+        let mut s = BytesMut::from("*2\r\n$3\r\nfoo\r\n");
+        assert!(Value::from(&mut s).unwrap().is_none());
+
+        // 声明元素数超过剩余字节数
+        let mut s = BytesMut::from("*10\r\n:1\r\n");
+        assert!(Value::from(&mut s).unwrap().is_none());
+
+        // 空输入
+        let mut s = BytesMut::new();
+        assert!(Value::from(&mut s).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_incremental() {
+        // 分片到达: 先到一部分，补全后可正常解析
+        let mut s = BytesMut::from("*2\r\n$4\r\nECH");
+        assert!(Value::from(&mut s).unwrap().is_none());
+        s.extend_from_slice(b"O\r\n$3\r\nfoo\r\n");
+        let (value, _) = Value::from(&mut s).unwrap().unwrap();
+        assert_eq!(
+            value,
+            Value::Arrays(vec![
+                Value::BulkStrings(Bytes::from("ECHO")),
+                Value::BulkStrings(Bytes::from("foo")),
+            ])
+        );
+
+        // 完整帧后面跟着下一帧的开头: 只消费完整帧
+        let mut s = BytesMut::from("$3\r\nfoo\r\n*2\r\n");
+        let (value, consumed) = Value::from(&mut s).unwrap().unwrap();
+        assert_eq!(value, Value::BulkStrings(Bytes::from("foo")));
+        assert_eq!(consumed.as_ref(), b"$3\r\nfoo\r\n");
+        assert_eq!(s.as_ref(), b"*2\r\n");
     }
 }

@@ -29,20 +29,24 @@ impl ConnectionHandler {
         }
     }
 
-    // 如果一个命令的大小超过tmp_buf的大小则此方法会有问题
+    // 增量读取: 当缓冲区数据不完整时继续读入，直到凑齐一个完整的RESP值
+    // 目前的实现是继续读入然后重新解析，尚未实现增量解析
     pub fn receive_value(&mut self) -> Result<Option<(Value, Bytes)>> {
-        if !self.buffer.is_empty() {
-            let (input, bytes) = Value::from(&mut self.buffer)?;
-            return Ok(Some((input, bytes)));
+        loop {
+            match Value::from(&mut self.buffer) {
+                Ok(Some(value)) => return Ok(Some(value)),
+                Ok(None) => {
+                    // 缓冲区数据不完整时需要区分是否是客户端已经关闭
+                    let read_cnt = self.stream.read(&mut self.tmp_buf)?;
+                    if read_cnt == 0 {
+                        // 对端关闭连接
+                        return Ok(None);
+                    }
+                    self.buffer.extend_from_slice(&self.tmp_buf[..read_cnt]);
+                }
+                Err(e) => return Err(e),
+            }
         }
-
-        let read_cnt = self.stream.read(&mut self.tmp_buf)?;
-        if read_cnt == 0 {
-            return Ok(None);
-        }
-        self.buffer.extend_from_slice(&self.tmp_buf[..read_cnt]);
-        let (input, bytes) = Value::from(&mut self.buffer)?;
-        Ok(Some((input, bytes)))
     }
 
     pub fn receive_array_values(&mut self) -> Result<Option<(Vec<Value>, Bytes)>> {
