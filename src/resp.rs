@@ -58,7 +58,7 @@ impl Value {
         }
     }
 
-    pub fn serilize(&self, out: &mut Vec<u8>) {
+    pub fn serialize(&self, out: &mut Vec<u8>) {
         match self {
             Value::SimpleStrings(s) => {
                 out.push(b'+');
@@ -90,7 +90,7 @@ impl Value {
                 out.extend_from_slice(vals.len().to_string().as_bytes());
                 out.extend_from_slice(b"\r\n");
                 for val in vals {
-                    val.serilize(out);
+                    val.serialize(out);
                 }
             }
             Value::EmptyArrays => {
@@ -109,7 +109,7 @@ impl Value {
 
     pub fn to_bytes(self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(128);
-        self.serilize(&mut bytes);
+        self.serialize(&mut bytes);
         bytes
     }
 
@@ -242,7 +242,7 @@ impl<'a> Parser<'a> {
         let val = &self.input[self.pos..self.pos + len];
         let bytes = Bytes::copy_from_slice(val); // todo: 零拷贝优化·
         self.pos += len;
-        if self.has_ternimator() {
+        if self.has_terminator() {
             self.consume_terminator()?;
         }
 
@@ -347,7 +347,7 @@ impl<'a> Parser<'a> {
     }
 
     // 判断当前位置是否有 \r\n 结束标志
-    fn has_ternimator(&mut self) -> bool {
+    fn has_terminator(&mut self) -> bool {
         self.peek_at(self.pos) == b'\r' && self.peek_at(self.pos + 1) == b'\n'
     }
 
@@ -430,9 +430,9 @@ impl From<HashSet<Bytes>> for Value {
 }
 
 impl From<Vec<StreamEntry>> for Value {
-    fn from(entrys: Vec<StreamEntry>) -> Self {
-        let mut frames: Vec<Value> = Vec::with_capacity(entrys.len());
-        for entry in entrys {
+    fn from(entries: Vec<StreamEntry>) -> Self {
+        let mut frames: Vec<Value> = Vec::with_capacity(entries.len());
+        for entry in entries {
             let id = entry.get_id();
             let values = entry.to_value();
             let mut frame: Vec<Value> = Vec::with_capacity(2);

@@ -24,4 +24,4 @@ pub use middleware::{
 pub use rdb::{RdbItem, RdbParser, RdbValue};
 pub use repl_hub::{ReplHub, ReplMsg};
 pub use resp::Value;
-pub use subscribe::{ChennalsHub, Subscription};
+pub use subscribe::{ChannelsHub, Subscription};

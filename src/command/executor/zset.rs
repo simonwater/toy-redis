@@ -59,9 +59,9 @@ pub(super) fn execute_zrange(cmd: &Command, ctx: &Arc<Context>) -> Result<Comman
         .to_integer()?;
 
     let db = ctx.db_ref();
-    let entrys = db.zrange(set_key, start, end)?;
-    let mut ans = Vec::with_capacity(entrys.len());
-    for entry in entrys {
+    let entries = db.zrange(set_key, start, end)?;
+    let mut ans = Vec::with_capacity(entries.len());
+    for entry in entries {
         ans.push(entry.member);
     }
     Ok(ans.into())

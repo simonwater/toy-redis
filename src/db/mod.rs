@@ -350,9 +350,9 @@ impl MemoryDB {
         for (stream_key, id) in stream_keys.iter().zip(entry_ids) {
             let stream_arc = self.get_or_create_stream(stream_key.clone())?;
 
-            let entrys = stream_arc.xread(id)?;
+            let entries = stream_arc.xread(id)?;
 
-            results.push((stream_key.clone(), entrys));
+            results.push((stream_key.clone(), entries));
         }
 
         Ok(Some(results))
@@ -441,9 +441,9 @@ impl MemoryDB {
         let mut found = false;
         for (stream_key, id) in stream_keys.iter().zip(entry_ids) {
             let stream_arc = self.get_or_create_stream(stream_key.clone())?;
-            let entrys = stream_arc.xread(id)?;
-            if !entrys.is_empty() {
-                results.push((stream_key.clone(), entrys));
+            let entries = stream_arc.xread(id)?;
+            if !entries.is_empty() {
+                results.push((stream_key.clone(), entries));
                 found = true;
             }
         }
@@ -658,9 +658,9 @@ impl MemoryDB {
         radius: f64,
     ) -> Result<Vec<Bytes>> {
         let mut ans = Vec::with_capacity(16);
-        let entrys = self.zrange(key, 0, -1)?;
+        let entries = self.zrange(key, 0, -1)?;
         let src_coord = Coordinates::new(longitude, latitude);
-        for entry in entrys {
+        for entry in entries {
             self.check_score(entry.member.clone(), entry.score)?;
             let dest_coord: Coordinates = geo::decode(entry.score as u64);
             let dist = geo::haversine(&src_coord, &dest_coord);

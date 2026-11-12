@@ -2,7 +2,7 @@ mod session;
 
 pub use session::Session;
 
-use crate::{AofHandler, ChennalsHub, Information, MemoryDB, ReplHub, user::UsersHub};
+use crate::{AofHandler, ChannelsHub, Information, MemoryDB, ReplHub, user::UsersHub};
 use anyhow::{Result, anyhow};
 use clap::Parser;
 
@@ -48,7 +48,7 @@ pub struct Context {
     info: Information,
     repl_hub: ReplHub,
     aof_handler: AofHandler,
-    chennals_hub: ChennalsHub,
+    channels_hub: ChannelsHub,
     users_hub: UsersHub,
 }
 
@@ -72,7 +72,7 @@ impl Context {
             }
         };
         let aof_handler = AofHandler::new(&args)?;
-        let chennals_hub = ChennalsHub::new();
+        let channels_hub = ChannelsHub::new();
         let users_hub = UsersHub::new();
 
         Ok(Self {
@@ -81,7 +81,7 @@ impl Context {
             info,
             repl_hub,
             aof_handler,
-            chennals_hub,
+            channels_hub,
             users_hub,
         })
     }
@@ -106,8 +106,8 @@ impl Context {
         &self.aof_handler
     }
 
-    pub fn chennals_hub(&self) -> &ChennalsHub {
-        &self.chennals_hub
+    pub fn channels_hub(&self) -> &ChannelsHub {
+        &self.channels_hub
     }
 
     pub fn users_hub(&self) -> &UsersHub {

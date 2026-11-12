@@ -38,7 +38,7 @@ pub(super) fn execute_xrange(cmd: &Command, ctx: &Arc<Context>) -> Result<Comman
         .to_bulk_bytes()?;
     let db = ctx.db_ref();
     let result = match db.xrange(stream_key, start, end)? {
-        Some(entrys) => entrys.into(),
+        Some(entries) => entries.into(),
         _ => Value::EmptyArrays,
     };
     Ok(result.into())
@@ -73,10 +73,10 @@ pub(super) fn execute_xread(cmd: &Command, ctx: &Arc<Context>) -> Result<Command
     let result = match db_result {
         Some(pairs) => {
             let mut frames: Vec<Value> = Vec::with_capacity(pairs.len());
-            for (stream_key, entrys) in pairs {
+            for (stream_key, entries) in pairs {
                 let mut frame: Vec<Value> = Vec::with_capacity(2);
                 frame.push(Value::BulkStrings(stream_key));
-                frame.push(entrys.into());
+                frame.push(entries.into());
 
                 frames.push(Value::Arrays(frame));
             }

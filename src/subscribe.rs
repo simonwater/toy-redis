@@ -12,13 +12,13 @@ use dashmap::DashMap;
 use crate::Context;
 
 pub struct ChenalMessage {
-    pub(crate) chennal: Bytes,
+    pub(crate) channel: Bytes,
     pub(crate) message: Bytes,
 }
 
 impl ChenalMessage {
-    pub(crate) fn new(chennal: Bytes, message: Bytes) -> Self {
-        Self { chennal, message }
+    pub(crate) fn new(channel: Bytes, message: Bytes) -> Self {
+        Self { channel, message }
     }
 }
 
@@ -34,11 +34,11 @@ impl Subscription {
         }
     }
 
-    pub fn subscirbe(&mut self, name: Bytes, ctx: &Arc<Context>) -> usize {
+    pub fn subscribe(&mut self, name: Bytes, ctx: &Arc<Context>) -> usize {
         // 确保不会重复订阅
         self.chenal_listeners
             .entry(name.clone())
-            .or_insert_with(|| ctx.chennals_hub().subscribe(name));
+            .or_insert_with(|| ctx.channels_hub().subscribe(name));
 
         self.chenal_listeners.len()
     }
@@ -50,9 +50,9 @@ impl Subscription {
 
     pub fn try_recv_msgs(&self) -> Vec<ChenalMessage> {
         let mut result = Vec::with_capacity(self.chenal_listeners.len());
-        for (chennal, rx) in &self.chenal_listeners {
+        for (channel, rx) in &self.chenal_listeners {
             if let Ok(msg) = rx.try_recv() {
-                result.push(ChenalMessage::new(chennal.clone(), msg));
+                result.push(ChenalMessage::new(channel.clone(), msg));
             }
         }
         result
@@ -67,30 +67,30 @@ impl Subscription {
     }
 }
 
-pub struct ChennalsHub {
-    chennals: DashMap<Bytes, Vec<Sender<Bytes>>>,
+pub struct ChannelsHub {
+    channels: DashMap<Bytes, Vec<Sender<Bytes>>>,
 }
 
-impl ChennalsHub {
+impl ChannelsHub {
     pub fn new() -> Self {
         Self {
-            chennals: DashMap::with_capacity(16),
+            channels: DashMap::with_capacity(16),
         }
     }
 
-    pub fn subscribe(&self, chennal: Bytes) -> Receiver<Bytes> {
+    pub fn subscribe(&self, channel: Bytes) -> Receiver<Bytes> {
         let (tx, rx) = mpsc::channel();
 
         let mut subs = self
-            .chennals
-            .entry(chennal)
+            .channels
+            .entry(channel)
             .or_insert_with(|| Vec::with_capacity(16));
         subs.push(tx);
         rx
     }
 
-    pub fn publish(&self, chennal: Bytes, msg: Bytes) -> usize {
-        if let Some(mut e) = self.chennals.get_mut(&chennal) {
+    pub fn publish(&self, channel: Bytes, msg: Bytes) -> usize {
+        if let Some(mut e) = self.channels.get_mut(&channel) {
             let subs = e.value_mut();
             subs.retain(|tx| tx.send(msg.clone()).is_ok());
             return subs.len();
@@ -98,8 +98,8 @@ impl ChennalsHub {
         0
     }
 
-    pub fn subscriber_len(&self, chennal: Bytes) -> usize {
-        match self.chennals.get(&chennal) {
+    pub fn subscriber_len(&self, channel: Bytes) -> usize {
+        match self.channels.get(&channel) {
             Some(v) => v.value().len(),
             _ => 0,
         }

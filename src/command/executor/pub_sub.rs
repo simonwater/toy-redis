@@ -30,8 +30,8 @@ fn subscribe_loop(ctx: &Arc<Context>, session: &mut Session) -> Result<()> {
 
     // 约定循环内部代码返回异常时（?）退出循环
     loop {
-        // 接收chennal订阅消息
-        try_recv_chennalmsg(session)?;
+        // 接收channel订阅消息
+        try_recv_channelmsg(session)?;
 
         // 接收客户端命令，等待时间100ms
         match session.connection_mut()?.receive_command() {
@@ -72,14 +72,14 @@ fn is_timeout(err: &Error) -> bool {
     false
 }
 
-fn try_recv_chennalmsg(session: &mut Session) -> Result<()> {
-    // 接收chennal订阅消息
-    let chennal_msgs = session.subscription_ref()?.try_recv_msgs();
-    for chennal_msg in chennal_msgs {
+fn try_recv_channelmsg(session: &mut Session) -> Result<()> {
+    // 接收channel订阅消息
+    let channel_msgs = session.subscription_ref()?.try_recv_msgs();
+    for channel_msg in channel_msgs {
         let val = Value::Arrays(vec![
             Bytes::from_static(b"message").into(),
-            chennal_msg.chennal.into(),
-            chennal_msg.message.into(),
+            channel_msg.channel.into(),
+            channel_msg.message.into(),
         ]);
         session.connection_mut()?.write_all(&val.to_bytes())?;
     }
@@ -103,15 +103,15 @@ fn handle_loop_cmd(command: &Command, ctx: &Arc<Context>, session: &mut Session)
 
 fn handle_subscribe(cmd: &Command, ctx: &Arc<Context>, session: &mut Session) -> Result<Value> {
     let mut arg_iter = cmd.args.iter();
-    let chennal = arg_iter
+    let channel = arg_iter
         .next()
-        .ok_or_else(|| anyhow!("subscribe command missing chennal argument!"))?
+        .ok_or_else(|| anyhow!("subscribe command missing channel argument!"))?
         .to_bulk_bytes()?;
     let sub = session.subscription_mut()?;
-    let len = sub.subscirbe(chennal.clone(), ctx);
+    let len = sub.subscribe(channel.clone(), ctx);
     let val = Value::Arrays(vec![
         Bytes::from_static(b"subscribe").into(),
-        chennal.into(),
+        channel.into(),
         Value::Integer(len as i64),
     ]);
 
@@ -120,15 +120,15 @@ fn handle_subscribe(cmd: &Command, ctx: &Arc<Context>, session: &mut Session) ->
 
 fn handle_unsubscribe(cmd: &Command, ctx: &Arc<Context>, session: &mut Session) -> Result<Value> {
     let mut arg_iter = cmd.args.iter();
-    let chennal = arg_iter
+    let channel = arg_iter
         .next()
-        .ok_or_else(|| anyhow!("unsubscribe command missing chennal argument!"))?
+        .ok_or_else(|| anyhow!("unsubscribe command missing channel argument!"))?
         .to_bulk_bytes()?;
     let sub = session.subscription_mut()?;
-    let len = sub.unsubscribe(chennal.clone(), ctx);
+    let len = sub.unsubscribe(channel.clone(), ctx);
     let val = Value::Arrays(vec![
         Bytes::from_static(b"unsubscribe").into(),
-        chennal.into(),
+        channel.into(),
         Value::Integer(len as i64),
     ]);
 
@@ -149,9 +149,9 @@ pub(super) fn execute_publish(
     _session: &mut Session,
 ) -> Result<CommandResponse> {
     let mut arg_iter = cmd.args.iter();
-    let chennal = arg_iter
+    let channel = arg_iter
         .next()
-        .ok_or_else(|| anyhow!("publish command missing chennal argument!"))?
+        .ok_or_else(|| anyhow!("publish command missing channel argument!"))?
         .to_bulk_bytes()?;
 
     let msg = arg_iter
@@ -159,6 +159,6 @@ pub(super) fn execute_publish(
         .ok_or_else(|| anyhow!("publish command missing content argument!"))?
         .to_bulk_bytes()?;
 
-    let cnt = ctx.chennals_hub().publish(chennal, msg) as i64;
+    let cnt = ctx.channels_hub().publish(channel, msg) as i64;
     Ok(cnt.into())
 }
