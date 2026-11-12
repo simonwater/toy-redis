@@ -37,7 +37,7 @@ fn main_pipeline() -> CommandPipeline {
     pipeline
         .use_middleware(Box::new(AuthMiddleware))
         .use_middleware(Box::new(TransMiddleware)) // 事务控制中间件
+        .use_middleware(Box::new(ReplConfMasterMiddleware))
         .use_middleware(Box::new(ReplicaMiddleware)) // 复本同步中间件
         .use_middleware(Box::new(AofMiddleware)) // aof存储中间件
-        .use_middleware(Box::new(ReplConfMasterMiddleware))
 }
