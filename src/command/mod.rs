@@ -35,7 +35,8 @@ impl Command {
 fn is_write_command(cmd: &Command) -> bool {
     match cmd.name.as_str() {
         "SET" | "INCR" | "RPUSH" | "LPUSH" | "RPOP" | "LPOP" | "BRPOP" | "BLPOP" | "XADD"
-        | "WATCH" | "UNWATCH" | "MULTI" | "EXEC" | "DISCARD" => true,
+        | "WATCH" | "UNWATCH" | "MULTI" | "EXEC" | "DISCARD" | "ZADD" | "ZREM" | "SETBIT"
+        | "GEOADD" => true,
         _ => false,
     }
 }
